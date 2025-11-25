@@ -1,0 +1,457 @@
+{
+  "uuid": "16bb9aeb-3edc-43b8-a107-94bd6ba78dd1",
+  "lastMigration": 33,
+  "name": "AI Email Client - Complete API",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3001,
+  "hostname": "localhost",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "93fe2ae9-6815-40ca-9d6f-f48ebd0d56dc",
+      "type": "http",
+      "documentation": "Get all users - JSON Server compatible",
+      "method": "get",
+      "endpoint": "users",
+      "responses": [
+        {
+          "uuid": "9c8eeeab-c339-48c6-a1f4-d97d0bb66f42",
+          "body": "[\n  {\n    \"id\": \"1\",\n    \"email\": \"admin@example.com\",\n    \"password\": \"password123\",\n    \"name\": \"Admin User\",\n    \"avatar\": \"A\",\n    \"createdAt\": \"2024-11-01T10:00:00Z\",\n    \"updatedAt\": \"2024-11-21T16:30:00Z\"\n  },\n  {\n    \"id\": \"2\",\n    \"email\": \"user@example.com\",\n    \"password\": \"password123\",\n    \"name\": \"Regular User\",\n    \"avatar\": \"U\",\n    \"createdAt\": \"2024-11-01T11:00:00Z\",\n    \"updatedAt\": \"2024-11-21T16:30:00Z\"\n  }\n]",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "Users List",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "ecfbc92c-efbd-4ed7-875f-660fb575ba1b",
+      "type": "http",
+      "documentation": "Login endpoint with proper authentication",
+      "method": "post",
+      "endpoint": "auth/login",
+      "responses": [
+        {
+          "uuid": "6e7650b0-bca5-4dae-a721-a367f5afaac8",
+          "body": "{\n  \"success\": true,\n  \"user\": {\n    \"id\": \"1\",\n    \"email\": \"{{body.email}}\",\n    \"name\": \"Admin User\",\n    \"avatar\": \"A\",\n    \"createdAt\": \"2024-11-01T10:00:00Z\",\n    \"updatedAt\": \"2024-11-21T16:30:00Z\"\n  },\n  \"tokens\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsIm5hbWUiOiJBZG1pbiBVc2VyIiwiaWF0IjoxNjM3MzQwMDAwLCJleHAiOjE2MzczNTQ0MDB9.fake_access_token\",\n    \"refreshToken\": \"refresh_token_admin_123456789\"\n  }\n}",
+          "latency": 200,
+          "statusCode": 200,
+          "label": "Admin Login Success",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "email",
+              "value": "admin@example.com",
+              "invert": false,
+              "operator": "equals"
+            },
+            {
+              "target": "body",
+              "modifier": "password",
+              "value": "password123",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "2c50ec2b-9ab2-485c-8d3e-b2691c3d5430",
+          "body": "{\n  \"success\": true,\n  \"user\": {\n    \"id\": \"2\",\n    \"email\": \"{{body.email}}\",\n    \"name\": \"Regular User\",\n    \"avatar\": \"U\",\n    \"createdAt\": \"2024-11-01T11:00:00Z\",\n    \"updatedAt\": \"2024-11-21T16:30:00Z\"\n  },\n  \"tokens\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZW1haWwiOiJ1c2VyQGV4YW1wbGUuY29tIiwibmFtZSI6IlJlZ3VsYXIgVXNlciIsImlhdCI6MTYzNzM0MDAwMCwiZXhwIjoxNjM3MzU0NDAwfQ.fake_user_token\",\n    \"refreshToken\": \"refresh_token_user_987654321\"\n  }\n}",
+          "latency": 200,
+          "statusCode": 200,
+          "label": "User Login Success",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [
+            {
+              "target": "body",
+              "modifier": "email",
+              "value": "user@example.com",
+              "invert": false,
+              "operator": "equals"
+            },
+            {
+              "target": "body",
+              "modifier": "password",
+              "value": "password123",
+              "invert": false,
+              "operator": "equals"
+            }
+          ],
+          "rulesOperator": "AND",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        },
+        {
+          "uuid": "c5b6d968-c158-4757-a64a-8072ce9e2a7a",
+          "body": "{\n  \"success\": false,\n  \"error\": \"Invalid credentials\",\n  \"message\": \"Email hoặc mật khẩu không đúng. Vui lòng thử lại.\"\n}",
+          "latency": 500,
+          "statusCode": 401,
+          "label": "Invalid Credentials",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "a8f3d9e2-5b7c-4d1a-9e6f-8c2b3a4d5e6f",
+      "type": "http",
+      "documentation": "Google OAuth login endpoint",
+      "method": "post",
+      "endpoint": "auth/google",
+      "responses": [
+        {
+          "uuid": "b9c4e8f3-6d2a-4e1b-8f7c-9d3e4a5b6c7d",
+          "body": "{\n  \"success\": true,\n  \"user\": {\n    \"id\": \"google_user_123\",\n    \"email\": \"googleuser@gmail.com\",\n    \"name\": \"Google User\",\n    \"avatar\": \"https://lh3.googleusercontent.com/a/default-user\",\n    \"createdAt\": \"2024-11-22T10:00:00Z\",\n    \"updatedAt\": \"2024-11-22T10:00:00Z\"\n  },\n  \"tokens\": {\n    \"accessToken\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJnb29nbGVfdXNlcl8xMjMiLCJlbWFpbCI6Imdvb2dsZXVzZXJAZ21haWwuY29tIiwibmFtZSI6Ikdvb2dsZSBVc2VyIiwiaWF0IjoxNjM3NTczMDAwLCJleHAiOjE2Mzc1ODcwMDB9.google_mock_access_token\",\n    \"refreshToken\": \"google_refresh_token_abcdef123456\"\n  }\n}",
+          "latency": 300,
+          "statusCode": 200,
+          "label": "Google Login Success",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "f652c7f7-1a60-44e3-b9d2-9557ae6875c4",
+      "type": "http",
+      "documentation": "Get all emails with Vietnamese content",
+      "method": "get",
+      "endpoint": "emails",
+      "responses": [
+        {
+          "uuid": "0df5a335-27b1-4506-bf3b-edd9ee26d46a",
+          "body": "[\n  {\n    \"id\": \"e1\",\n    \"sender\": \"Google Cloud Platform\",\n    \"senderEmail\": \"noreply@googlecloud.com\",\n    \"avatar\": \"G\",\n    \"time\": \"10:30 AM\",\n    \"subject\": \"Invoice for October 2023 is available\",\n    \"summary\": \"Hóa đơn dịch vụ Cloud tháng 10. Tổng tiền: $150.00. Cần thanh toán trước ngày 25/11 để tránh gián đoạn dịch vụ.\",\n    \"body\": \"Dear Customer,\\n\\nYour invoice for October 2023 is now available. Please review and pay by the due date to avoid service interruption.\\n\\nAmount Due: $150.00\\nDue Date: November 25, 2023\\n\\nThank you for using Google Cloud Platform.\",\n    \"column\": \"inbox\",\n    \"priority\": \"high\",\n    \"isRead\": false,\n    \"isStarred\": false,\n    \"order\": 1,\n    \"createdAt\": \"2024-11-21T10:30:00Z\",\n    \"updatedAt\": \"2024-11-21T10:30:00Z\"\n  },\n  {\n    \"id\": \"e2\",\n    \"sender\": \"Nguyễn Văn A (Team Lead)\",\n    \"senderEmail\": \"vana@company.com\",\n    \"avatar\": \"A\",\n    \"time\": \"09:15 AM\",\n    \"subject\": \"Re: Cập nhật tiến độ dự án Mobile App\",\n    \"summary\": \"Yêu cầu gửi lại bản thiết kế UI mới nhất trước 4h chiều nay để review với khách hàng. Nhắc nhở team fix lỗi API đăng nhập.\",\n    \"body\": \"Hi team,\\n\\nCần gửi lại UI design và fix login API bug trước 4PM hôm nay để có thể demo với client.\\n\\nTasks cần hoàn thành:\\n- Update UI mockups\\n- Fix authentication flow\\n- Test on mobile devices\\n\\nCảm ơn cả team!\",\n    \"column\": \"inbox\",\n    \"priority\": \"medium\",\n    \"isRead\": false,\n    \"isStarred\": true,\n    \"order\": 2,\n    \"createdAt\": \"2024-11-21T09:15:00Z\",\n    \"updatedAt\": \"2024-11-21T09:15:00Z\"\n  },\n  {\n    \"id\": \"e3\",\n    \"sender\": \"Trần Thị B (HR)\",\n    \"senderEmail\": \"hr.tranb@company.com\",\n    \"avatar\": \"B\",\n    \"time\": \"08:45 AM\",\n    \"subject\": \"Thông báo: Họp team building tháng 11\",\n    \"summary\": \"Sự kiện team building dự kiến tổ chức vào cuối tháng 11. Địa điểm: Resort Vũng Tàu. Thời gian: 2 ngày 1 đêm.\",\n    \"body\": \"Dear team,\\n\\nTeam building event sẽ được tổ chức tại Vũng Tàu vào cuối tháng.\\n\\nChi tiết:\\n- Thời gian: 30/11 - 01/12\\n- Địa điểm: Paradise Resort Vũng Tàu\\n- Hoạt động: Team games, BBQ, beach party\\n\\nVui lòng confirm tham gia trước 25/11.\",\n    \"column\": \"inbox\",\n    \"priority\": \"low\",\n    \"isRead\": true,\n    \"isStarred\": false,\n    \"order\": 3,\n    \"createdAt\": \"2024-11-21T08:45:00Z\",\n    \"updatedAt\": \"2024-11-21T08:45:00Z\"\n  },\n  {\n    \"id\": \"e4\",\n    \"sender\": \"GitHub\",\n    \"senderEmail\": \"noreply@github.com\",\n    \"avatar\": \"G\",\n    \"time\": \"Yesterday\",\n    \"subject\": \"Security alert: New sign-in from Windows device\",\n    \"summary\": \"Phát hiện đăng nhập mới từ thiết bị Windows tại TP.HCM. Nếu không phải bạn, vui lòng thay đổi mật khẩu ngay.\",\n    \"body\": \"We detected a new sign-in to your GitHub account.\\n\\nDevice: Windows 11\\nLocation: Ho Chi Minh City, Vietnam\\nTime: November 21, 2024 at 2:30 PM\\n\\nIf this was you, you can ignore this email. If not, please secure your account immediately.\",\n    \"column\": \"todo\",\n    \"priority\": \"high\",\n    \"isRead\": false,\n    \"isStarred\": true,\n    \"order\": 1,\n    \"createdAt\": \"2024-11-21T14:30:00Z\",\n    \"updatedAt\": \"2024-11-21T14:30:00Z\"\n  },\n  {\n    \"id\": \"e5\",\n    \"sender\": \"Netflix\",\n    \"senderEmail\": \"info@netflix.com\",\n    \"avatar\": \"N\",\n    \"time\": \"2 days ago\",\n    \"subject\": \"New releases this week - Don't miss out!\",\n    \"summary\": \"Discover exciting new movies and TV shows added to Netflix this week including action, drama and comedy series.\",\n    \"body\": \"Check out our latest releases!\\n\\n🎬 New Movies:\\n- Action Thriller: Bangkok Heist\\n- Comedy: Office Romance\\n- Drama: Family Bonds\\n\\n📺 New Series:\\n- Tech Startup (Season 1)\\n- Mystery Island (Season 3)\\n\\nHappy watching!\",\n    \"column\": \"done\",\n    \"priority\": \"low\",\n    \"isRead\": true,\n    \"isStarred\": false,\n    \"order\": 1,\n    \"createdAt\": \"2024-11-20T12:00:00Z\",\n    \"updatedAt\": \"2024-11-20T12:00:00Z\"\n  }\n]",
+          "latency": 100,
+          "statusCode": 200,
+          "label": "Emails List",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "580229a6-4c0f-40cf-8dd4-f9c1ca7ddf09",
+      "type": "http",
+      "documentation": "Get specific email by ID",
+      "method": "get",
+      "endpoint": "emails/:id",
+      "responses": [
+        {
+          "uuid": "f7e20ea9-63d4-4b86-86b4-0679ee6b3493",
+          "body": "{\n  \"id\": \"{{urlParam 'id'}}\",\n  \"sender\": \"Dynamic Email Sender\",\n  \"senderEmail\": \"sender@example.com\",\n  \"avatar\": \"D\",\n  \"time\": \"{{now}}\",\n  \"subject\": \"Email với ID: {{urlParam 'id'}}\",\n  \"summary\": \"Đây là email có ID {{urlParam 'id'}} được tạo động từ Mockoon.\",\n  \"body\": \"Nội dung chi tiết cho email {{urlParam 'id'}}.\\n\\nEmail này được tạo tự động bởi Mockoon server.\\n\\nThời gian: {{now}}\",\n  \"column\": \"inbox\",\n  \"priority\": \"medium\",\n  \"isRead\": false,\n  \"isStarred\": false,\n  \"order\": 1,\n  \"createdAt\": \"{{now}}\",\n  \"updatedAt\": \"{{now}}\"\n}",
+          "latency": 50,
+          "statusCode": 200,
+          "label": "Email Found",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "2fd889ac-9271-4c7d-89dd-f368b99c7870",
+      "type": "http",
+      "documentation": "Update email using PATCH (JSON Server style)",
+      "method": "patch",
+      "endpoint": "emails/:id",
+      "responses": [
+        {
+          "uuid": "4c6aa763-020f-4fb9-8c98-55a7ca861ad7",
+          "body": "{\n  \"id\": \"{{urlParam 'id'}}\",\n  \"sender\": \"{{body.sender}}\",\n  \"senderEmail\": \"{{body.senderEmail}}\",\n  \"avatar\": \"{{body.avatar}}\",\n  \"time\": \"{{body.time}}\",\n  \"subject\": \"{{body.subject}}\",\n  \"summary\": \"{{body.summary}}\",\n  \"body\": \"{{body.body}}\",\n  \"column\": \"{{body.column}}\",\n  \"priority\": \"{{body.priority}}\",\n  \"isRead\": {{body.isRead}},\n  \"isStarred\": {{body.isStarred}},\n  \"order\": {{body.order}},\n  \"createdAt\": \"{{body.createdAt}}\",\n  \"updatedAt\": \"{{now}}\"\n}",
+          "latency": 50,
+          "statusCode": 200,
+          "label": "Update Success",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    },
+    {
+      "uuid": "b328d76a-81b5-48f1-a467-a88e46765d5d",
+      "type": "http",
+      "documentation": "Handle CORS preflight requests",
+      "method": "options",
+      "endpoint": "*",
+      "responses": [
+        {
+          "uuid": "72913260-5409-442d-9c30-fb2f6943ddb0",
+          "body": "",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "CORS Preflight",
+          "headers": [
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "Access-Control-Allow-Methods",
+              "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+            },
+            {
+              "key": "Access-Control-Allow-Headers",
+              "value": "Content-Type,Authorization,X-Requested-With"
+            },
+            {
+              "key": "Access-Control-Max-Age",
+              "value": "86400"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": true,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "93fe2ae9-6815-40ca-9d6f-f48ebd0d56dc"
+    },
+    {
+      "type": "route",
+      "uuid": "ecfbc92c-efbd-4ed7-875f-660fb575ba1b"
+    },
+    {
+      "type": "route",
+      "uuid": "f652c7f7-1a60-44e3-b9d2-9557ae6875c4"
+    },
+    {
+      "type": "route",
+      "uuid": "580229a6-4c0f-40cf-8dd4-f9c1ca7ddf09"
+    },
+    {
+      "type": "route",
+      "uuid": "2fd889ac-9271-4c7d-89dd-f368b99c7870"
+    },
+    {
+      "type": "route",
+      "uuid": "b328d76a-81b5-48f1-a467-a88e46765d5d"
+    },
+    {
+      "type": "route",
+      "uuid": "a8f3d9e2-5b7c-4d1a-9e6f-8c2b3a4d5e6f"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [
+    {
+      "key": "Access-Control-Allow-Origin",
+      "value": "*"
+    },
+    {
+      "key": "Access-Control-Allow-Methods",
+      "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+    },
+    {
+      "key": "Access-Control-Allow-Headers",
+      "value": "Content-Type,Authorization,X-Requested-With"
+    }
+  ],
+  "proxyReqHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "proxyResHeaders": [
+    {
+      "key": "",
+      "value": ""
+    }
+  ],
+  "data": [],
+  "callbacks": []
+}
