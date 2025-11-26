@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
-import { useAppSelector, useAppDispatch } from '../../store';
-import { getCurrentUser } from '../../store/slices/authSlice';
+import React from 'react';
+import { useAppSelector } from '../../store';
 import { CircularProgress, Box } from '@mui/material';
 
 interface AuthGuardProps {
@@ -8,15 +7,7 @@ interface AuthGuardProps {
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
-  const dispatch = useAppDispatch();
-  const { isLoading, user, accessToken } = useAppSelector(state => state.auth);
-
-  useEffect(() => {
-    // If we have a token but no user data, fetch user info
-    if (accessToken && !user && !isLoading) {
-      dispatch(getCurrentUser());
-    }
-  }, [dispatch, accessToken, user, isLoading]);
+  const { isLoading } = useAppSelector((state) => state.auth);
 
   if (isLoading) {
     return (

@@ -1,28 +1,25 @@
 /**
  * API Configuration Manager
- * Handles different API backends: Mockoon and Production
+ * Handles API communication with the production backend
  */
 
 import axios from "axios";
-
-export type ApiMode = "mockoon" | "production";
+import type { RootState } from "../store";
 
 export interface ApiConfig {
   baseUrl: string;
-  mode: ApiMode;
   endpoints: {
     auth: {
       login: string;
+      register: string;
       refresh: string;
       logout: string;
       google: string;
     };
-    emails: {
-      list: string;
+    gmail: {
+      labels: string;
+      list: (labelId: string) => string;
       get: (id: string) => string;
-      update: (id: string) => string;
-      create: string;
-      delete: (id: string) => string;
     };
   };
   headers: Record<string, string>;
@@ -38,75 +35,29 @@ class ApiConfigManager {
   private buildConfig(): ApiConfig {
     const baseUrl =
       import.meta.env.VITE_API_BASE_URL || "http://localhost:8081";
-    const mode = (import.meta.env.VITE_API_MODE || "production") as ApiMode;
 
     return {
       baseUrl,
-      mode,
-      endpoints: this.getEndpoints(mode),
-      headers: this.getHeaders(mode),
+      endpoints: {
+        auth: {
+          login: "/api/auth/login",
+          register: "/api/auth/register",
+          refresh: "/api/auth/refresh-token",
+          logout: "/api/auth/logout",
+          google: "/api/auth/google",
+        },
+        gmail: {
+          labels: "/api/gmail/labels",
+          list: (labelId: string) => `/api/gmail/list/${labelId}`,
+          get: (id: string) => `/api/gmail/${id}`,
+        },
+      },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+      },
     };
-  }
-
-  private getEndpoints(mode: ApiMode) {
-    switch (mode) {
-      case "mockoon":
-        return {
-          auth: {
-            login: "/auth/login",
-            refresh: "/auth/refresh",
-            logout: "/auth/logout",
-            google: "/auth/google",
-          },
-          emails: {
-            list: "/emails",
-            get: (id: string) => `/emails/${id}`,
-            update: (id: string) => `/emails/${id}`,
-            create: "/emails",
-            delete: (id: string) => `/emails/${id}`,
-          },
-        };
-
-      case "production":
-      default:
-        return {
-          auth: {
-            login: "/api/auth/login",
-            refresh: "/api/auth/refresh",
-            logout: "/api/auth/logout",
-            google: "/api/auth/google",
-          },
-          emails: {
-            list: "/api/emails",
-            get: (id: string) => `/api/emails/${id}`,
-            update: (id: string) => `/api/emails/${id}`,
-            create: "/api/emails",
-            delete: (id: string) => `/api/emails/${id}`,
-          },
-        };
-    }
-  }
-
-  private getHeaders(mode: ApiMode): Record<string, string> {
-    const commonHeaders = {
-      "Content-Type": "application/json",
-    };
-
-    switch (mode) {
-      case "mockoon":
-        return {
-          ...commonHeaders,
-          Accept: "application/json",
-        };
-
-      case "production":
-      default:
-        return {
-          ...commonHeaders,
-          Accept: "application/json",
-          "X-Requested-With": "XMLHttpRequest",
-        };
-    }
   }
 
   public getConfig(): ApiConfig {
@@ -115,29 +66,6 @@ class ApiConfigManager {
 
   public getFullUrl(endpoint: string): string {
     return `${this.config.baseUrl}${endpoint}`;
-  }
-
-  public isProduction(): boolean {
-    return this.config.mode === "production";
-  }
-
-  public isMockMode(): boolean {
-    return this.config.mode === "mockoon";
-  }
-
-  public getMode(): ApiMode {
-    return this.config.mode;
-  }
-
-  // Method to log current configuration for debugging
-  public logConfig(): void {
-    if (import.meta.env.VITE_LOG_LEVEL === "debug") {
-      console.group("🔧 API Configuration");
-      console.log("Mode:", this.config.mode);
-      console.log("Base URL:", this.config.baseUrl);
-      console.log("Full Config:", this.config);
-      console.groupEnd();
-    }
   }
 }
 
@@ -148,36 +76,111 @@ export const apiConfig = new ApiConfigManager();
 export const api = axios.create({
   baseURL: apiConfig.getConfig().baseUrl,
   headers: apiConfig.getConfig().headers,
-  timeout: 10000,
+  timeout: 50000,
 });
 
-// Request interceptor - add token
+// Store reference for interceptor
+let store: { getState: () => RootState } | null = null;
+
+export const setStoreForApi = (storeInstance: { getState: () => RootState }) => {
+  store = storeInstance;
+};
+
+// Request interceptor - get token from Redux store (in-memory)
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token && !apiConfig.isMockMode()) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (store) {
+    const state = store.getState();
+    const token = state.auth.accessToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
-
-  if (import.meta.env.VITE_LOG_LEVEL === "debug") {
-    console.log(
-      `🌐 API Request [${apiConfig.getMode()}]:`,
-      config.method?.toUpperCase(),
-      config.url
-    );
-  }
-
   return config;
 });
 
-// Response interceptor - handle errors
+// Response interceptor - auto refresh on 401
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: unknown) => void;
+  reject: (reason?: unknown) => void;
+}> = [];
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
+  async (error) => {
+    const originalRequest = error.config;
+
+    // If 401 and not already retrying
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // Queue this request while refresh is in progress
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            if (store) {
+              const token = store.getState().auth.accessToken;
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      // Try to refresh token from Redux store
+      if (store) {
+        const state = store.getState();
+        const refreshToken = state.auth.refreshToken;
+
+        if (refreshToken) {
+          try {
+            const { data } = await axios.post(
+              `${apiConfig.getConfig().baseUrl}${apiConfig.getConfig().endpoints.auth.refresh}`,
+              { token: refreshToken }
+            );
+
+            // Dispatch to Redux to update tokens
+            // Note: This will be handled by the component that catches this
+            processQueue(null, data.accessToken);
+            isRefreshing = false;
+
+            // Update header and retry
+            originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
+
+            // Store will be updated by SessionRestorer or auth slice
+            return api(originalRequest);
+          } catch (refreshError) {
+            processQueue(refreshError as Error, null);
+            isRefreshing = false;
+
+            // Refresh failed - logout
+            localStorage.removeItem("persist:auth");
+            window.location.href = "/login";
+            return Promise.reject(refreshError);
+          }
+        }
+      }
+
+      // No refresh token - logout
+      isRefreshing = false;
+      localStorage.removeItem("persist:auth");
       window.location.href = "/login";
     }
+
     return Promise.reject(error);
   }
 );

@@ -4,6 +4,11 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline, CircularProgress, Box } from '@mui/material';
 import { store, persistor } from './store';
 import { AppRoutes } from './routes/AppRoutes';
+import { SessionRestorer } from './components/auth/SessionRestorer';
+import { setStoreForApi } from './config/apiConfig';
+
+// Connect store to API for in-memory token access
+setStoreForApi(store);
 
 // Create MUI theme
 const theme = createTheme({
@@ -34,18 +39,20 @@ const theme = createTheme({
 function App() {
   return (
     <Provider store={store}>
-      <PersistGate 
+      <PersistGate
         loading={
           <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
             <CircularProgress />
           </Box>
-        } 
+        }
         persistor={persistor}
       >
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <AppRoutes />
-        </ThemeProvider>
+        <SessionRestorer>
+          <ThemeProvider theme={theme}>
+            <CssBaseline />
+            <AppRoutes />
+          </ThemeProvider>
+        </SessionRestorer>
       </PersistGate>
     </Provider>
   );
