@@ -1,11 +1,11 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useAppDispatch, useAppSelector } from "../store";
-import { loginWithEmail, clearError } from "../store/slices/authSlice";
+import { register as registerUser, clearError } from "../store/slices/authSlice";
 import GoogleLoginButton from "../components/auth/GoogleLoginButton";
-import type { LoginCredentials } from "../types";
+import type { RegisterRequest } from "../types";
 import { Sparkles, Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   Container,
   Paper,
@@ -19,7 +19,7 @@ import {
   InputAdornment,
 } from "@mui/material";
 
-const LoginPage: React.FC = () => {
+const RegisterPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((state) => state.auth);
   const [showPassword, setShowPassword] = useState(false);
@@ -28,16 +28,17 @@ const LoginPage: React.FC = () => {
     register,
     handleSubmit,
     formState: { errors, isValid },
-  } = useForm<LoginCredentials>({
+  } = useForm<RegisterRequest>({
     mode: "onChange",
     defaultValues: {
+      name: "",
       email: "",
       password: "",
     },
   });
 
-  const onSubmit = (data: LoginCredentials) => {
-    dispatch(loginWithEmail(data));
+  const onSubmit = (data: RegisterRequest) => {
+    dispatch(registerUser(data));
   };
 
   const clearAuthError = () => {
@@ -57,10 +58,10 @@ const LoginPage: React.FC = () => {
               <Sparkles size={32} />
             </div>
             <Typography variant="h4" className="font-bold text-slate-900 mb-2">
-              AI Email Flow
+              Create Account
             </Typography>
             <Typography variant="body1" className="text-slate-600">
-              Biến Inbox hỗn độn thành bảng Kanban hiệu quả
+              Join AI Email Flow today
             </Typography>
           </Box>
 
@@ -76,8 +77,25 @@ const LoginPage: React.FC = () => {
             </Alert>
           )}
 
-          {/* Email/Password Form */}
+          {/* Registration Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mb-6">
+            <TextField
+              {...register("name", {
+                required: "Name is required",
+                minLength: {
+                  value: 2,
+                  message: "Name must be at least 2 characters",
+                },
+              })}
+              fullWidth
+              label="Full Name"
+              variant="outlined"
+              error={!!errors.name}
+              helperText={errors.name?.message}
+              disabled={isLoading}
+              className="mb-4"
+            />
+
             <TextField
               {...register("email", {
                 required: "Email is required",
@@ -139,7 +157,7 @@ const LoginPage: React.FC = () => {
                 ) : null
               }
             >
-              {isLoading ? "Signing In..." : "Sign In"}
+              {isLoading ? "Creating Account..." : "Sign Up"}
             </Button>
           </form>
 
@@ -152,27 +170,19 @@ const LoginPage: React.FC = () => {
           {/* Google Sign-In */}
           <GoogleLoginButton disabled={isLoading} />
 
-          {/* Sign Up Link */}
+          {/* Footer */}
           <Box className="mt-6 text-center">
             <Typography variant="body2" className="text-slate-600">
-              Don't have an account?{" "}
-              <Link to="/register" className="text-blue-600 hover:underline font-medium">
-                Sign Up
+              Already have an account?{" "}
+              <Link to="/login" className="text-blue-600 hover:underline font-medium">
+                Sign In
               </Link>
             </Typography>
           </Box>
-
-          {/* Footer */}
-          <Typography
-            variant="caption"
-            className="text-slate-400 text-center block mt-6"
-          >
-            By logging in, you agree to our Terms of Service.
-          </Typography>
         </Paper>
       </Container>
     </div>
   );
 };
 
-export default LoginPage;
+export default RegisterPage;

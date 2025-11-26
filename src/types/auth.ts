@@ -21,6 +21,12 @@ export interface LoginCredentials {
   password: string;
 }
 
+export interface RegisterRequest {
+  name: string;
+  email: string;
+  password: string;
+}
+
 export interface GoogleAuthResponse {
   credential: string;
   clientId?: string;

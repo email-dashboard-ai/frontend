@@ -4,6 +4,7 @@ import type {
   AuthState,
   LoginCredentials,
   GoogleAuthRequest,
+  RegisterRequest,
 } from "../../types/auth";
 import { authService } from "../../services";
 
@@ -17,6 +18,18 @@ const initialState: AuthState = {
 };
 
 // Async thunks
+export const register = createAsyncThunk(
+  "auth/register",
+  async (data: RegisterRequest, { rejectWithValue }) => {
+    try {
+      const response = await authService.register(data);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.message || "Registration failed");
+    }
+  }
+);
+
 export const loginWithEmail = createAsyncThunk(
   "auth/loginWithEmail",
   async (credentials: LoginCredentials, { rejectWithValue }) => {
@@ -72,18 +85,6 @@ export const logout = createAsyncThunk(
   }
 );
 
-export const getCurrentUser = createAsyncThunk(
-  "auth/getCurrentUser",
-  async (_, { rejectWithValue }) => {
-    try {
-      const user = await authService.getCurrentUser();
-      return user;
-    } catch (error: any) {
-      return rejectWithValue(error.message || "Failed to get current user");
-    }
-  }
-);
-
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -108,6 +109,24 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Register
+      .addCase(register.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(register.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload.user;
+        state.accessToken = action.payload.accessToken;
+        state.refreshToken = action.payload.refreshToken;
+        state.isAuthenticated = true;
+        state.error = null;
+      })
+      .addCase(register.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        state.isAuthenticated = false;
+      })
       // Login with email
       .addCase(loginWithEmail.pending, (state) => {
         state.isLoading = true;
@@ -170,19 +189,6 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.error = null;
         state.isLoading = false;
-      })
-      // Get current user
-      .addCase(getCurrentUser.pending, (state) => {
-        state.isLoading = true;
-      })
-      .addCase(getCurrentUser.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.user = action.payload;
-        state.error = null;
-      })
-      .addCase(getCurrentUser.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
       });
   },
 });

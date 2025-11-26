@@ -1,28 +1,43 @@
 import type { Email, PaginationParams } from '../types';
 import { apiConfig, api } from '../config/apiConfig';
+import { getAllMockEmails, getMockEmailById } from './mockEmailData';
 
 class EmailService {
-  constructor() {
-    // Log API configuration on service initialization
-    apiConfig.logConfig();
-  }
-
   async getEmails(_params?: PaginationParams): Promise<Email[]> {
-    const config = apiConfig.getConfig();
-    const { data } = await api.get(config.endpoints.emails.list);
-    return data;
+    try {
+      const config = apiConfig.getConfig();
+      // Try to get from Gmail API first
+      const { data } = await api.get(config.endpoints.emails.list);
+
+      // If no data or empty, return mock data
+      if (!data || (Array.isArray(data) && data.length === 0)) {
+        console.log('Using mock email data');
+        return getAllMockEmails();
+      }
+
+      return data;
+    } catch (error) {
+      console.warn('Failed to fetch emails from backend, using mock data:', error);
+      return getAllMockEmails();
+    }
   }
 
   async getEmailById(emailId: string): Promise<Email> {
-    const config = apiConfig.getConfig();
-    const { data } = await api.get(config.endpoints.emails.get(emailId));
-    return data;
+    try {
+      const config = apiConfig.getConfig();
+      const { data } = await api.get(config.endpoints.emails.get(emailId));
+      return data;
+    } catch (error) {
+      console.warn('Failed to fetch email from backend, using mock data:', error);
+      const mockEmail = getMockEmailById(emailId);
+      if (!mockEmail) throw new Error('Email not found');
+      return mockEmail;
+    }
   }
 
   async searchEmails(query: string): Promise<Email[]> {
-    const config = apiConfig.getConfig();
-    const { data: emails } = await api.get(config.endpoints.emails.list);
-    
+    const emails = await this.getEmails();
+
     // Simple client-side search
     const lowerQuery = query.toLowerCase();
     return emails.filter((email: Email) =>
@@ -46,7 +61,7 @@ class EmailService {
   async toggleStar(emailId: string): Promise<Email> {
     // Get current email first
     const email = await this.getEmailById(emailId);
-    
+
     // Update with toggled star status
     return this.updateEmail(emailId, { isStarred: !email.isStarred });
   }

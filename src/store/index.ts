@@ -3,33 +3,23 @@ import { useDispatch, useSelector } from 'react-redux';
 import type { TypedUseSelectorHook } from 'react-redux';
 import authReducer from './slices/authSlice';
 import emailReducer from './slices/emailSlice';
+import gmailReducer from './slices/gmailSlice';
 import { persistStore, persistReducer } from 'redux-persist';
-import storage from 'redux-persist/lib/storage'; // localStorage
+import storage from 'redux-persist/lib/storage';
 
-/**
- * SECURITY BEST PRACTICES FOR TOKEN MANAGEMENT:
- * 
- * ✅ Access Token: NEVER persisted, only in memory (Redux state)
- * ✅ Refresh Token: Managed separately in localStorage via authService
- * ✅ User Data: Not persisted in Redux for security
- * ✅ Auto-logout: On token expiration or manual logout
- * 
- * This follows OWASP recommendations for SPA security
- */
-
-// Persist config for auth (SECURITY: Never persist access token)
+// Persist config for auth
 const authPersistConfig = {
   key: 'auth',
   storage,
-  blacklist: ['accessToken', 'user', 'isLoading', 'error'], // Never persist sensitive data
-  whitelist: ['isAuthenticated', 'refreshToken'], // Persist auth state & refresh token
+  blacklist: ['accessToken', 'user', 'isLoading', 'error'],
+  whitelist: ['isAuthenticated', 'refreshToken'],
 };
 
-// Persist config for email preferences
+// Persist config for email
 const emailPersistConfig = {
   key: 'email',
   storage,
-  whitelist: ['searchQuery'], // Only persist search query
+  whitelist: ['searchQuery'],
 };
 
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
@@ -39,6 +29,7 @@ export const store = configureStore({
   reducer: {
     auth: persistedAuthReducer,
     email: persistedEmailReducer,
+    gmail: gmailReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -53,6 +44,5 @@ export const persistor = persistStore(store);
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
 
-// Typed hooks
 export const useAppDispatch = () => useDispatch<AppDispatch>();
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;

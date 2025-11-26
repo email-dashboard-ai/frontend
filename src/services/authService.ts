@@ -1,141 +1,129 @@
+import { jwtDecode } from "jwt-decode";
 import type {
   AuthResponse,
   LoginCredentials,
   GoogleAuthRequest,
+  RegisterRequest,
   User,
 } from "../types/auth";
-import { TOKEN_KEYS } from "../constants";
 import { apiConfig, api } from "../config/apiConfig";
 
+interface BackendAuthResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+interface DecodedToken {
+  sub: string; // email
+  iat: number;
+  exp: number;
+  // Add other claims if known
+  name?: string;
+  userId?: string;
+}
+
 class AuthService {
-  constructor() {
-    // Log API configuration on service initialization
-    apiConfig.logConfig();
+  private getUserFromToken(accessToken: string): User {
+    try {
+      const decoded = jwtDecode<DecodedToken>(accessToken);
+      return {
+        id: decoded.userId || decoded.sub, // Fallback to email as ID if userId is missing
+        email: decoded.sub,
+        name: decoded.name || decoded.sub.split('@')[0], // Fallback to email prefix
+        createdAt: new Date().toISOString(), // Dummy date
+        updatedAt: new Date().toISOString(), // Dummy date
+      };
+    } catch (error) {
+      console.error("Failed to decode token:", error);
+      throw new Error("Invalid token");
+    }
+  }
+
+  private handleAuthResponse(data: BackendAuthResponse): AuthResponse {
+    if (!data.accessToken || !data.refreshToken) {
+      throw new Error("Invalid response from server");
+    }
+
+    const user = this.getUserFromToken(data.accessToken);
+
+    // ✅ ASSIGNMENT REQUIREMENT: Access token in-memory ONLY
+    // ✅ Refresh token persisted via Redux Persist
+    // NO localStorage for access_token
+
+    return {
+      user,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+    };
+  }
+
+  async register(request: RegisterRequest): Promise<AuthResponse> {
+    try {
+      const config = apiConfig.getConfig();
+      const { data } = await api.post<BackendAuthResponse>(
+        config.endpoints.auth.register,
+        request
+      );
+      return this.handleAuthResponse(data);
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      throw new Error(error.response?.data?.message || "Registration failed");
+    }
   }
 
   async loginWithEmail(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       const config = apiConfig.getConfig();
-      const { data } = await api.post(config.endpoints.auth.login, credentials);
-
-      // Handle API response format
-      if (data.success && data.user && data.tokens) {
-        const authResponse: AuthResponse = {
-          user: data.user,
-          accessToken: data.tokens.accessToken,
-          refreshToken: data.tokens.refreshToken,
-        };
-
-        localStorage.setItem(
-          TOKEN_KEYS.REFRESH_TOKEN,
-          authResponse.refreshToken
-        );
-        localStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN);
-
-        return authResponse;
-      } else {
-        throw new Error(data.message || "Authentication failed");
-      }
-    } catch (error) {
+      const { data } = await api.post<BackendAuthResponse>(
+        config.endpoints.auth.login,
+        credentials
+      );
+      return this.handleAuthResponse(data);
+    } catch (error: any) {
       console.error("Login error:", error);
-      throw new Error("Network error or invalid credentials");
+      throw new Error(error.response?.data?.message || "Invalid credentials");
     }
   }
 
   async loginWithGoogle(request: GoogleAuthRequest): Promise<AuthResponse> {
     try {
       const config = apiConfig.getConfig();
-      console.log("Sending auth code to backend:", request.authCode);
-
-      // Send the auth code to your backend - matches your Java DTO
-      const { data } = await api.post(config.endpoints.auth.google, {
-        authCode: request.authCode,
-      });
-
-      console.log("Backend Google auth response:", data);
-
-      // Handle different response formats from your backend
-      let authResponse: AuthResponse;
-
-      if (data.accessToken && data.refreshToken) {
-        // Direct response format
-        authResponse = {
-          user: data.user || {
-            id: data.userId || "google-user",
-            email: data.email || "user@gmail.com",
-            name: data.name || "Google User",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-        };
-      } else if (data.success && data.tokens) {
-        // Wrapped response format
-        authResponse = {
-          user: data.user,
-          accessToken: data.tokens.accessToken,
-          refreshToken: data.tokens.refreshToken,
-        };
-      } else {
-        throw new Error(data.message || "Google authentication failed");
-      }
-
-      // Store tokens
-      localStorage.setItem(TOKEN_KEYS.ACCESS_TOKEN, authResponse.accessToken);
-      localStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, authResponse.refreshToken);
-
-      return authResponse;
-    } catch (error) {
+      const { data } = await api.post<BackendAuthResponse>(
+        config.endpoints.auth.google,
+        { authCode: request.authCode }
+      );
+      return this.handleAuthResponse(data);
+    } catch (error: any) {
       console.error("Google login error:", error);
-      if (error instanceof Error) {
-        throw new Error(`Google login failed: ${error.message}`);
-      }
-      throw new Error("Google login failed");
+      throw new Error(error.response?.data?.message || "Google login failed");
     }
   }
 
-  async refreshToken(
-    refreshToken: string
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const config = apiConfig.getConfig();
-    const { data } = await api.post(config.endpoints.auth.refresh, {
-      refreshToken,
-    });
+    const { data } = await api.post<BackendAuthResponse>(
+      config.endpoints.auth.refresh,
+      { token: refreshToken }
+    );
 
-    const tokens = {
-      accessToken: data.tokens?.accessToken || data.accessToken,
-      refreshToken: data.tokens?.refreshToken || data.refreshToken,
-    };
-
-    localStorage.setItem(TOKEN_KEYS.REFRESH_TOKEN, tokens.refreshToken);
-    localStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN);
-
-    return tokens;
+    // Return tokens to Redux - NO localStorage
+    return data;
   }
 
   async logout(): Promise<void> {
     try {
       const config = apiConfig.getConfig();
-      const refreshToken = localStorage.getItem(TOKEN_KEYS.REFRESH_TOKEN);
-
-      if (refreshToken) {
-        await api.post(config.endpoints.auth.logout, { refreshToken });
-      }
+      await api.post(config.endpoints.auth.logout);
     } catch (error) {
       console.error("Logout API error:", error);
     } finally {
-      // Always clear local storage
-      localStorage.removeItem(TOKEN_KEYS.ACCESS_TOKEN);
-      localStorage.removeItem(TOKEN_KEYS.REFRESH_TOKEN);
+      // Clear refresh token from persist
       localStorage.removeItem("persist:auth");
     }
   }
 
-  async getCurrentUser(): Promise<User> {
-    const config = apiConfig.getConfig();
-    const { data } = await api.get(`${config.baseUrl}/auth/me`);
-    return data.user || data;
+  getUserFromAccessToken(accessToken: string): User {
+    return this.getUserFromToken(accessToken);
   }
 }
 
