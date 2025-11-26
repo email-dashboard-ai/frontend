@@ -2,7 +2,6 @@ import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
 import type { TypedUseSelectorHook } from 'react-redux';
 import authReducer from './slices/authSlice';
-import emailReducer from './slices/emailSlice';
 import gmailReducer from './slices/gmailSlice';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage';
@@ -11,24 +10,15 @@ import storage from 'redux-persist/lib/storage';
 const authPersistConfig = {
   key: 'auth',
   storage,
-  blacklist: ['accessToken', 'user', 'isLoading', 'error'],
-  whitelist: ['isAuthenticated', 'refreshToken'],
-};
-
-// Persist config for email
-const emailPersistConfig = {
-  key: 'email',
-  storage,
-  whitelist: ['searchQuery'],
+  blacklist: ['accessToken', 'isLoading', 'error'],
+  whitelist: ['isAuthenticated', 'refreshToken', 'user'],
 };
 
 const persistedAuthReducer = persistReducer(authPersistConfig, authReducer);
-const persistedEmailReducer = persistReducer(emailPersistConfig, emailReducer);
 
 export const store = configureStore({
   reducer: {
     auth: persistedAuthReducer,
-    email: persistedEmailReducer,
     gmail: gmailReducer,
   },
   middleware: (getDefaultMiddleware) =>

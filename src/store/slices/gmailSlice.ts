@@ -15,9 +15,9 @@ const initialState: GmailState = {
 // Async thunks
 export const fetchLabels = createAsyncThunk(
   'gmail/fetchLabels',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, signal }) => {
     try {
-      return await gmailService.getLabels();
+      return await gmailService.getLabels(signal);
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch labels');
     }
@@ -26,9 +26,9 @@ export const fetchLabels = createAsyncThunk(
 
 export const fetchMessages = createAsyncThunk(
   'gmail/fetchMessages',
-  async ({ labelId, page = 1, limit = 50 }: { labelId: string; page?: number; limit?: number }, { rejectWithValue }) => {
+  async ({ labelId, page = 1, limit = 50 }: { labelId: string; page?: number; limit?: number }, { rejectWithValue, signal }) => {
     try {
-      return await gmailService.getMessages(labelId, page, limit);
+      return await gmailService.getMessages(labelId, page, limit, signal);
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch messages');
     }
@@ -37,9 +37,9 @@ export const fetchMessages = createAsyncThunk(
 
 export const fetchMessage = createAsyncThunk(
   'gmail/fetchMessage',
-  async (messageId: string, { rejectWithValue }) => {
+  async (messageId: string, { rejectWithValue, signal }) => {
     try {
-      return await gmailService.getMessage(messageId);
+      return await gmailService.getMessage(messageId, signal);
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch message');
     }

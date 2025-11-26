@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../store';
 import {
   fetchLabels,
@@ -23,9 +23,26 @@ const EmailDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
 
+  // Resizable columns state
+  const [sidebarWidth, setSidebarWidth] = useState(240);
+  const [listWidth, setListWidth] = useState(350);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [isResizingList, setIsResizingList] = useState(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     dispatch(fetchLabels());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!selectedLabel && labels.length > 0) {
+      const inbox = labels.find(l => l.id === 'INBOX');
+      if (inbox) {
+        dispatch(setSelectedLabel(inbox));
+      }
+    }
+  }, [labels, selectedLabel, dispatch]);
 
   useEffect(() => {
     if (selectedLabel) {
@@ -33,19 +50,52 @@ const EmailDashboard: React.FC = () => {
     }
   }, [selectedLabel, dispatch]);
 
+  // Resize handlers
+  const startResizingSidebar = useCallback(() => setIsResizingSidebar(true), []);
+  const startResizingList = useCallback(() => setIsResizingList(true), []);
+  const stopResizing = useCallback(() => {
+    setIsResizingSidebar(false);
+    setIsResizingList(false);
+  }, []);
+
+  const resize = useCallback((mouseMoveEvent: MouseEvent) => {
+    if (isResizingSidebar) {
+      const newWidth = mouseMoveEvent.clientX;
+      if (newWidth > 150 && newWidth < 400) {
+        setSidebarWidth(newWidth);
+      }
+    }
+    if (isResizingList) {
+      const newWidth = mouseMoveEvent.clientX - sidebarWidth;
+      if (newWidth > 300 && newWidth < 800) {
+        setListWidth(newWidth);
+      }
+    }
+  }, [isResizingSidebar, isResizingList, sidebarWidth]);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resize);
+    window.addEventListener('mouseup', stopResizing);
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [resize, stopResizing]);
+
   const handleLabelClick = (label: GmailLabel) => {
     dispatch(setSelectedLabel(label));
     setIsMobileDetailView(false);
   };
 
   const handleMessageClick = (message: ParsedEmail) => {
+    console.log('Message clicked:', message);
     dispatch(setSelectedMessage(message));
     dispatch(fetchMessage(message.id));
     setIsMobileDetailView(true);
   };
 
   const getLabelIcon = (labelId: string) => {
-    const icons: Record<string, JSX.Element> = {
+    const icons: Record<string, React.ReactNode> = {
       'INBOX': <Inbox size={18} />,
       'STARRED': <Star size={18} />,
       'SENT': <Send size={18} />,
@@ -82,10 +132,27 @@ const EmailDashboard: React.FC = () => {
     msg.snippet.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getLabelPriority = (labelId: string) => {
+    const priorities: Record<string, number> = {
+      'INBOX': 1,
+      'STARRED': 2,
+      'IMPORTANT': 3,
+      'SENT': 4,
+      'DRAFT': 5,
+      'TRASH': 6,
+      'SPAM': 7,
+    };
+    return priorities[labelId] || 100;
+  };
+
+  const visibleLabels = labels
+    .filter(l => !l.id.startsWith('CATEGORY_') && !['CHAT', 'YELLOW_STAR', 'UNREAD'].includes(l.id))
+    .sort((a, b) => getLabelPriority(a.id) - getLabelPriority(b.id));
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       {/* Header */}
-      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
+      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-10 select-none">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
             <Mail className="text-white" size={22} />
@@ -120,35 +187,40 @@ const EmailDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Main Content - 3 Columns */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Column 1: Mailboxes (20%) */}
-        <aside className={`w-full md:w-64 bg-white border-r border-gray-200 flex-shrink-0 ${isMobileDetailView ? 'hidden md:block' : 'block'}`}>
+      {/* Main Content - Resizable Columns */}
+      <div className="flex-1 flex overflow-hidden relative">
+
+        {/* Column 1: Mailboxes */}
+        <aside
+          ref={sidebarRef}
+          className={`bg-white border-r border-gray-200 flex-shrink-0 flex flex-col ${isMobileDetailView ? 'hidden md:flex' : 'flex'} w-full md:w-[var(--sidebar-width)]`}
+          style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
+        >
           <div className="p-4">
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2.5 font-medium flex items-center justify-center gap-2 transition-colors">
+            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2.5 font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
               <Mail size={18} />
               Compose
             </button>
           </div>
 
-          <nav className="px-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+          <nav className="px-2 flex-1 overflow-y-auto custom-scrollbar select-none">
             {isLoading && labels.length === 0 ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="animate-spin text-gray-400" size={24} />
               </div>
             ) : (
-              labels.map(label => (
+              visibleLabels.map(label => (
                 <button
                   key={label.id}
                   onClick={() => handleLabelClick(label)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg mb-1 transition-colors ${selectedLabel?.id === label.id
-                      ? 'bg-blue-50 text-blue-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-100'
+                    ? 'bg-blue-50 text-blue-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-100'
                     }`}
                 >
                   <div className="flex items-center gap-3">
                     {getLabelIcon(label.id)}
-                    <span className="text-sm">{label.name}</span>
+                    <span className="text-sm truncate">{label.name}</span>
                   </div>
                   {label.messagesUnread ? (
                     <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
@@ -161,9 +233,19 @@ const EmailDashboard: React.FC = () => {
           </nav>
         </aside>
 
-        {/* Column 2: Email List (40%) */}
-        <div className={`flex-1 bg-white border-r border-gray-200 flex flex-col ${isMobileDetailView ? 'hidden md:flex' : 'flex'}`}>
-          <div className="border-b border-gray-200 p-4 flex-shrink-0">
+        {/* Resizer 1 */}
+        <div
+          className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 hidden md:block select-none"
+          onMouseDown={startResizingSidebar}
+        />
+
+        {/* Column 2: Email List */}
+        <div
+          ref={listRef}
+          className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 ${isMobileDetailView ? 'hidden md:flex' : 'flex'} w-full md:w-[var(--list-width)]`}
+          style={{ '--list-width': `${listWidth}px` } as React.CSSProperties}
+        >
+          <div className="border-b border-gray-200 p-4 flex-shrink-0 bg-white z-10">
             <div className="flex items-center gap-2 mb-3">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -172,12 +254,12 @@ const EmailDashboard: React.FC = () => {
                   placeholder="Search emails..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 />
               </div>
               <button
                 onClick={() => selectedLabel && dispatch(fetchMessages({ labelId: selectedLabel.id }))}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 title="Refresh"
               >
                 <RefreshCw size={18} className="text-gray-600" />
@@ -185,44 +267,46 @@ const EmailDashboard: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">{selectedLabel?.name || 'Select a folder'}</h2>
-              <span className="text-sm text-gray-500">{filteredMessages.length} emails</span>
+              <h2 className="font-semibold text-gray-900 truncate pr-2">{selectedLabel?.name || 'Select a folder'}</h2>
+              <span className="text-xs text-gray-500 whitespace-nowrap">{filteredMessages.length} emails</span>
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto custom-scrollbar select-none">
             {isLoading && messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="animate-spin text-gray-400" size={32} />
               </div>
             ) : filteredMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400">
-                <Mail size={48} className="mb-3" />
-                <p>No emails found</p>
+              <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4 text-center">
+                <Mail size={48} className="mb-3 opacity-50" />
+                <p>No data available</p>
               </div>
             ) : (
               filteredMessages.map(message => (
                 <div
                   key={message.id}
                   onClick={() => handleMessageClick(message)}
-                  className={`border-b border-gray-100 p-4 cursor-pointer transition-colors ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50'
-                    } ${!message.isRead ? 'bg-blue-50/30' : ''}`}
+                  className={`border-b border-gray-100 p-4 cursor-pointer transition-all ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
+                    } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'}`}
                 >
                   <div className="flex items-start justify-between mb-1">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {message.isStarred && <Star size={14} className="text-yellow-500 fill-yellow-500" />}
-                      <span className={`text-sm truncate ${!message.isRead ? 'font-semibold' : ''}`}>
+                      {message.isStarred && <Star size={14} className="text-yellow-500 fill-yellow-500 flex-shrink-0" />}
+                      <span className={`text-sm truncate ${!message.isRead ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
                         {extractName(message.from)}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-500 ml-2">{formatDate(message.date)}</span>
+                    <span className={`text-xs ml-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                      {formatDate(message.date)}
+                    </span>
                   </div>
 
-                  <h3 className={`text-sm mb-1 truncate ${!message.isRead ? 'font-semibold' : ''}`}>
-                    {message.subject}
+                  <h3 className={`text-sm mb-1 truncate ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                    {message.subject || '(No Subject)'}
                   </h3>
 
-                  <p className="text-xs text-gray-500 truncate">{message.snippet}</p>
+                  <p className="text-xs text-gray-500 truncate line-clamp-1">{message.snippet}</p>
 
                   {message.attachments.length > 0 && (
                     <div className="flex items-center gap-1 mt-2">
@@ -236,8 +320,14 @@ const EmailDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Column 3: Email Detail (40%) */}
-        <div className={`flex-1 bg-white flex flex-col ${!isMobileDetailView ? 'hidden md:flex' : 'flex'}`}>
+        {/* Resizer 2 */}
+        <div
+          className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 hidden md:block select-none"
+          onMouseDown={startResizingList}
+        />
+
+        {/* Column 3: Email Detail */}
+        <div className={`flex-1 bg-white flex flex-col min-w-0 ${!isMobileDetailView ? 'hidden md:flex' : 'flex'}`}>
           {selectedMessage ? (
             <>
               <div className="md:hidden border-b border-gray-200 p-4">
@@ -248,70 +338,74 @@ const EmailDashboard: React.FC = () => {
               </div>
 
               <div className="border-b border-gray-200 p-6 flex-shrink-0">
-                <h1 className="text-xl font-bold text-gray-900 mb-4">{selectedMessage.subject}</h1>
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <h1 className="text-xl font-bold text-gray-900 leading-tight">{selectedMessage.subject}</h1>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                      <Star size={20} className={selectedMessage.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
+                    </button>
+                  </div>
+                </div>
 
-                <div className="flex items-start gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700">
+                <div className="flex items-start gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 flex-shrink-0">
                     {extractName(selectedMessage.from)[0]}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-gray-900">{extractName(selectedMessage.from)}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+                      <span className="font-medium text-gray-900 truncate">{extractName(selectedMessage.from)}</span>
                       <span className="text-sm text-gray-500">{formatDate(selectedMessage.date)}</span>
                     </div>
-                    <div className="text-sm text-gray-600">
-                      <div>to: {extractEmail(selectedMessage.to)}</div>
-                      {selectedMessage.cc && <div>cc: {selectedMessage.cc}</div>}
+                    <div className="text-sm text-gray-600 truncate">
+                      to: {extractEmail(selectedMessage.to)}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                    <Reply size={16} />
-                    Reply
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                  <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
+                    <Reply size={16} /> Reply
                   </button>
-                  <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
-                    <ReplyAll size={16} />
-                    Reply All
+                  <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
+                    <ReplyAll size={16} /> Reply All
                   </button>
-                  <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
-                    <Forward size={16} />
-                    Forward
+                  <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
+                    <Forward size={16} /> Forward
                   </button>
-                  <button className="ml-auto p-2 hover:bg-gray-100 rounded-lg">
-                    <Star size={18} className={selectedMessage.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
-                  </button>
-                  <button className="p-2 hover:bg-gray-100 rounded-lg">
-                    <Trash2 size={18} className="text-gray-400" />
+                  <div className="flex-1"></div>
+                  <button className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors" title="Delete">
+                    <Trash2 size={18} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: selectedMessage.body }} />
+              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar relative">
+                {isLoading && (
+                  <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+                    <Loader2 className="animate-spin text-blue-600" size={32} />
+                  </div>
+                )}
+                <div
+                  className="prose prose-sm max-w-none text-gray-800 font-sans"
+                  dangerouslySetInnerHTML={{ __html: selectedMessage.body }}
+                />
 
                 {selectedMessage.attachments.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="mt-8 pt-6 border-t border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Paperclip size={16} />
                       Attachments ({selectedMessage.attachments.length})
                     </h3>
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {selectedMessage.attachments.map((att, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded flex items-center justify-center">
-                              <Paperclip size={18} className="text-blue-600" />
-                            </div>
-                            <div>
-                              <div className="font-medium text-sm">{att.filename}</div>
-                              <div className="text-xs text-gray-500">{(att.size / 1024).toFixed(1)} KB</div>
-                            </div>
+                        <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all group cursor-pointer">
+                          <div className="w-10 h-10 bg-white rounded border border-gray-200 flex items-center justify-center mr-3 group-hover:text-blue-600">
+                            <FileText size={20} className="text-gray-400 group-hover:text-blue-500" />
                           </div>
-                          <button className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
-                            Download
-                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate text-gray-700 group-hover:text-blue-700">{att.filename}</div>
+                            <div className="text-xs text-gray-500">{(att.size / 1024).toFixed(1)} KB</div>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -320,10 +414,12 @@ const EmailDashboard: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400">
-              <MailOpen size={64} className="mb-4" />
-              <p className="text-lg font-medium">Select an email to view</p>
-              <p className="text-sm">Choose an email from the list to read its contents</p>
+            <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50/50">
+              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
+                <MailOpen size={48} className="text-gray-300" />
+              </div>
+              <p className="text-lg font-medium text-gray-600">Select an email to view</p>
+              <p className="text-sm text-gray-400 mt-1">Choose an email from the list to read its contents</p>
             </div>
           )}
         </div>

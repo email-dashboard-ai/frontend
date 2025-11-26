@@ -76,7 +76,7 @@ export const apiConfig = new ApiConfigManager();
 export const api = axios.create({
   baseURL: apiConfig.getConfig().baseUrl,
   headers: apiConfig.getConfig().headers,
-  timeout: 10000,
+  timeout: 50000,
 });
 
 // Store reference for interceptor
