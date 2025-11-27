@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthGuard, ProtectedRoute, PublicRoute } from '../components/auth';
 
 // Pages
-import { LoginPage, RegisterPage, UnauthorizedPage, NotFoundPage } from '../pages';
+import { LoginPage, RegisterPage, UnauthorizedPage, NotFoundPage, UnauthenticatedPage } from '../pages';
 import EmailDashboard from '../pages/EmailDashboard';
 
 export const AppRoutes: React.FC = () => {
@@ -40,7 +40,8 @@ export const AppRoutes: React.FC = () => {
           />
 
           {/* Error routes */}
-          <Route path="/unauthorized" element={<UnauthorizedPage />} />
+          <Route path="/401" element={<UnauthenticatedPage />} />
+          <Route path="/403" element={<UnauthorizedPage />} />
           <Route path="/404" element={<NotFoundPage />} />
 
           {/* Redirects */}
