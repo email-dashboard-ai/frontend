@@ -103,21 +103,23 @@ class GmailService {
     return data.data;
   }
 
-  async getMessages(labelId: string = 'INBOX', page: number = 1, limit: number = 50, signal?: AbortSignal): Promise<ParsedEmail[]> {
-    const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<GmailMessage[]>>(
-      config.endpoints.gmail.list(labelId),
-      { params: { page, limit }, signal }
-    );
+import { appConfig } from '../config/appConfig';
 
-    return data.data.map(msg => this.parseMessage(msg));
-  }
+  async getMessages(labelId: string = 'INBOX', page: number = 1, limit: number = appConfig.gmail.defaultPageLimit, signal ?: AbortSignal): Promise < ParsedEmail[] > {
+  const config = apiConfig.getConfig();
+  const { data } = await api.get<ApiResponse<GmailMessage[]>>(
+    config.endpoints.gmail.list(labelId),
+    { params: { page, limit }, signal }
+  );
 
-  async getMessage(messageId: string, signal?: AbortSignal): Promise<ParsedEmail> {
-    const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<GmailMessage>>(config.endpoints.gmail.get(messageId), { signal });
-    return this.parseMessage(data.data);
-  }
+  return data.data.map(msg => this.parseMessage(msg));
+}
+
+  async getMessage(messageId: string, signal ?: AbortSignal): Promise < ParsedEmail > {
+  const config = apiConfig.getConfig();
+  const { data } = await api.get<ApiResponse<GmailMessage>>(config.endpoints.gmail.get(messageId), { signal });
+  return this.parseMessage(data.data);
+}
 }
 
 export const gmailService = new GmailService();

@@ -24,9 +24,11 @@ export const fetchLabels = createAsyncThunk(
   }
 );
 
+import { appConfig } from '../../config/appConfig';
+
 export const fetchMessages = createAsyncThunk(
   'gmail/fetchMessages',
-  async ({ labelId, page = 1, limit = 50 }: { labelId: string; page?: number; limit?: number }, { rejectWithValue, signal }) => {
+  async ({ labelId, page = 1, limit = appConfig.gmail.defaultPageLimit }: { labelId: string; page?: number; limit?: number }, { rejectWithValue, signal }) => {
     try {
       return await gmailService.getMessages(labelId, page, limit, signal);
     } catch (error: any) {
