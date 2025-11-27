@@ -28,9 +28,10 @@ import { appConfig } from '../../config/appConfig';
 
 export const fetchMessages = createAsyncThunk(
   'gmail/fetchMessages',
-  async ({ labelId, page = 1, limit = appConfig.gmail.defaultPageLimit }: { labelId: string; page?: number; limit?: number }, { rejectWithValue, signal }) => {
+  async ({ labelId, page = 1, limit = appConfig.gmail.defaultPageLimit, isLoadMore = false }: { labelId: string; page?: number; limit?: number; isLoadMore?: boolean }, { rejectWithValue, signal }) => {
     try {
-      return await gmailService.getMessages(labelId, page, limit, signal);
+      const messages = await gmailService.getMessages(labelId, page, limit, signal);
+      return { messages, isLoadMore };
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch messages');
     }
@@ -90,7 +91,11 @@ const gmailSlice = createSlice({
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.messages = action.payload;
+        if (action.payload.isLoadMore) {
+          state.messages = [...state.messages, ...action.payload.messages];
+        } else {
+          state.messages = action.payload.messages;
+        }
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.isLoading = false;

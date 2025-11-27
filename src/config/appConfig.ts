@@ -1,5 +1,5 @@
 export const appConfig = {
     gmail: {
-        defaultPageLimit: 50,
+        defaultPageLimit: 20,
     },
 };

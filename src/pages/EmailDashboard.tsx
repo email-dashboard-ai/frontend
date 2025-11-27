@@ -22,6 +22,8 @@ const EmailDashboard: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true); // Assuming we have more until proven otherwise or API tells us
 
   // Resizable columns state
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -46,9 +48,35 @@ const EmailDashboard: React.FC = () => {
 
   useEffect(() => {
     if (selectedLabel) {
-      dispatch(fetchMessages({ labelId: selectedLabel.id }));
+      setPage(1);
+      setHasMore(true);
+      dispatch(fetchMessages({ labelId: selectedLabel.id, page: 1 }));
     }
   }, [selectedLabel, dispatch]);
+
+  const loadMoreMessages = useCallback(() => {
+    if (!isLoading && hasMore && selectedLabel) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      dispatch(fetchMessages({ labelId: selectedLabel.id, page: nextPage, isLoadMore: true }))
+        .unwrap()
+        .then((result) => {
+          if (result.messages.length === 0) {
+            setHasMore(false);
+          }
+        })
+        .catch(() => {
+          setPage(prev => prev - 1); // Revert on error
+        });
+    }
+  }, [isLoading, hasMore, selectedLabel, page, dispatch]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 50) { // Load when within 50px of bottom
+      loadMoreMessages();
+    }
+  }, [loadMoreMessages]);
 
   // Resize handlers
   const startResizingSidebar = useCallback(() => setIsResizingSidebar(true), []);
@@ -272,7 +300,10 @@ const EmailDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar select-none">
+          <div
+            className="flex-1 overflow-y-auto custom-scrollbar select-none"
+            onScroll={handleScroll}
+          >
             {isLoading && messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="animate-spin text-gray-400" size={32} />
@@ -316,6 +347,11 @@ const EmailDashboard: React.FC = () => {
                   )}
                 </div>
               ))
+            )}
+            {isLoading && messages.length > 0 && (
+              <div className="p-4 flex justify-center">
+                <Loader2 className="animate-spin text-blue-600" size={24} />
+              </div>
             )}
           </div>
         </div>
