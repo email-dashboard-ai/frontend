@@ -39,7 +39,7 @@ console.log(
   "   VITE_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com"
 );
 console.log("5. Add authorized origins: http://localhost:3000");
-console.log("6. Start your backend on port 8081");
+console.log("6. Start your backend on port 3000");
 console.log("7. Run: npm run dev");
 
 console.log("\n📖 See docs/GOOGLE_OAUTH_SETUP.md for detailed instructions\n");
