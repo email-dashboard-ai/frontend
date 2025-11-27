@@ -7,6 +7,7 @@ import type {
   User,
 } from "../types/auth";
 import { apiConfig, api } from "../config/apiConfig";
+import type { ApiResponse } from "../types/api";
 
 interface BackendAuthResponse {
   accessToken: string;
@@ -60,11 +61,11 @@ class AuthService {
   async register(request: RegisterRequest): Promise<AuthResponse> {
     try {
       const config = apiConfig.getConfig();
-      const { data } = await api.post<BackendAuthResponse>(
+      const { data } = await api.post<ApiResponse<BackendAuthResponse>>(
         config.endpoints.auth.register,
         request
       );
-      return this.handleAuthResponse(data);
+      return this.handleAuthResponse(data.data);
     } catch (error: any) {
       console.error("Registration error:", error);
       throw new Error(error.response?.data?.message || "Registration failed");
@@ -74,11 +75,11 @@ class AuthService {
   async loginWithEmail(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       const config = apiConfig.getConfig();
-      const { data } = await api.post<BackendAuthResponse>(
+      const { data } = await api.post<ApiResponse<BackendAuthResponse>>(
         config.endpoints.auth.login,
         credentials
       );
-      return this.handleAuthResponse(data);
+      return this.handleAuthResponse(data.data);
     } catch (error: any) {
       console.error("Login error:", error);
       throw new Error(error.response?.data?.message || "Invalid credentials");
@@ -88,11 +89,11 @@ class AuthService {
   async loginWithGoogle(request: GoogleAuthRequest): Promise<AuthResponse> {
     try {
       const config = apiConfig.getConfig();
-      const { data } = await api.post<BackendAuthResponse>(
+      const { data } = await api.post<ApiResponse<BackendAuthResponse>>(
         config.endpoints.auth.google,
         { authCode: request.authCode }
       );
-      return this.handleAuthResponse(data);
+      return this.handleAuthResponse(data.data);
     } catch (error: any) {
       console.error("Google login error:", error);
       throw new Error(error.response?.data?.message || "Google login failed");
@@ -101,13 +102,13 @@ class AuthService {
 
   async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const config = apiConfig.getConfig();
-    const { data } = await api.post<BackendAuthResponse>(
+    const { data } = await api.post<ApiResponse<BackendAuthResponse>>(
       config.endpoints.auth.refresh,
       { token: refreshToken }
     );
 
     // Return tokens to Redux - NO localStorage
-    return data;
+    return data.data;
   }
 
   async logout(): Promise<void> {

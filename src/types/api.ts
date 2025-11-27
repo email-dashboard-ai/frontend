@@ -2,7 +2,8 @@ export interface ApiResponse<T = any> {
   data: T;
   message?: string;
   success: boolean;
-  statusCode: number;
+  errorCode: number;
+  statusCode?: number; // Optional as it might not be in the body
 }
 
 export interface PaginationParams {
