@@ -22,8 +22,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   selectedLabel,
   onToggleStar,
   onToggleRead,
-  onDelete,
-  onRestore
+  onDelete
 }) => {
   const isInTrash = selectedLabel?.id === 'TRASH';
 
@@ -106,15 +105,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
                 <Forward size={16} /> Forward
               </button>
               <div className="flex-1"></div>
-              {isInTrash ? (
-                <button
-                  onClick={() => onRestore(selectedMessage.id)}
-                  className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-                  title="Restore to Inbox"
-                >
-                  <Mail size={16} /> Restore
-                </button>
-              ) : (
+              {!isInTrash && (
                 <button
                   onClick={() => onDelete(selectedMessage.id)}
                   className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors"

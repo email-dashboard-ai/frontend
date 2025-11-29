@@ -6,7 +6,9 @@ import {
   toggleEmailStar,
   deleteEmailAction,
   untrashEmailAction,
-  fetchMessages
+  fetchMessages,
+  batchDeleteEmailsAction,
+  batchUpdateStatusAction
 } from '../store/slices/gmailSlice';
 import toast from 'react-hot-toast';
 import React from 'react';
@@ -63,11 +65,30 @@ export const useEmailActions = () => {
     dispatch(fetchMessages({ labelId }));
   }, [dispatch]);
 
+  const handleBulkDelete = useCallback(async (ids: string[]) => {
+    try {
+      await dispatch(batchDeleteEmailsAction(ids)).unwrap();
+      toast.success(`${ids.length} emails moved to trash`);
+    } catch (error) {
+      toast.error('Failed to delete emails');
+    }
+  }, [dispatch]);
+
+  const handleBulkMarkRead = useCallback(async (ids: string[], isRead: boolean) => {
+    try {
+      await dispatch(batchUpdateStatusAction({ ids, isRead })).unwrap();
+    } catch (error) {
+      console.error('Failed to update read status', error);
+    }
+  }, [dispatch]);
+
   return {
     handleToggleRead,
     handleToggleStar,
     handleDeleteEmail,
     handleRestoreEmail,
-    refreshMessages
+    refreshMessages,
+    handleBulkDelete,
+    handleBulkMarkRead
   };
 };

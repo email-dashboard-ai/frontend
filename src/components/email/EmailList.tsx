@@ -1,6 +1,6 @@
 import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
-import { Search, RefreshCw, Mail, Loader2, Star, Trash2, Paperclip } from 'lucide-react';
+import { Search, RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare } from 'lucide-react';
 
 interface EmailListProps {
   listWidth: number;
@@ -17,6 +17,11 @@ interface EmailListProps {
   listRef: React.RefObject<HTMLDivElement | null>;
   onToggleStar: (id: string, isStarred: boolean) => void;
   onDelete: (id: string) => void;
+  selectedIds: Set<string>;
+  onToggleSelection: (id: string) => void;
+  onBulkDelete: (ids: string[]) => void;
+  onBulkMarkRead: (ids: string[], isRead: boolean) => void;
+  onClearSelection: () => void;
 }
 
 const EmailList: React.FC<EmailListProps> = ({
@@ -33,7 +38,12 @@ const EmailList: React.FC<EmailListProps> = ({
   onScroll,
   listRef,
   onToggleStar,
-  onDelete
+  onDelete,
+  selectedIds,
+  onToggleSelection,
+  onBulkDelete,
+  onBulkMarkRead,
+  onClearSelection
 }) => {
   const isInTrash = selectedLabel?.id === 'TRASH';
 
@@ -59,6 +69,10 @@ const EmailList: React.FC<EmailListProps> = ({
     msg.snippet.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Determine bulk action state based on the first selected item
+  const firstSelectedMessage = filteredMessages.find(msg => selectedIds.has(msg.id));
+  const isFirstSelectedRead = firstSelectedMessage?.isRead ?? false;
+
   return (
     <div
       ref={listRef}
@@ -66,30 +80,72 @@ const EmailList: React.FC<EmailListProps> = ({
       style={{ '--list-width': `${listWidth}px` } as React.CSSProperties}
     >
       <div className="border-b border-gray-200 p-4 flex-shrink-0 bg-white z-10 h-[110px] flex flex-col justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Search emails..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-            />
+        {selectedIds.size > 0 ? (
+          // Bulk Action Toolbar
+          <div className="flex flex-col h-full justify-center gap-3">
+            <div className="flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-blue-100">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={onClearSelection}
+                  className="text-blue-600 hover:text-blue-800 transition-colors"
+                  title="Clear selection"
+                >
+                  <MinusSquare size={20} />
+                </button>
+                <span className="font-semibold text-blue-900 text-sm">{selectedIds.size} selected</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => onBulkMarkRead(Array.from(selectedIds), !isFirstSelectedRead)}
+                  className="p-2 hover:bg-blue-100 rounded text-blue-700 transition-colors"
+                  title={isFirstSelectedRead ? 'Mark as Unread' : 'Mark as Read'}
+                >
+                  {isFirstSelectedRead ? <Mail size={18} /> : <MailOpen size={18} />}
+                </button>
+                {!isInTrash && (
+                  <button
+                    onClick={() => onBulkDelete(Array.from(selectedIds))}
+                    className="p-2 hover:bg-red-100 rounded text-red-600 transition-colors"
+                    title="Delete selected"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 text-center">
+              Select more or perform action
+            </div>
           </div>
-          <button
-            onClick={onRefresh}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw size={18} className="text-gray-600" />
-          </button>
-        </div>
+        ) : (
+          // Standard Search Toolbar
+          <>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search emails..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                />
+              </div>
+              <button
+                onClick={onRefresh}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw size={18} className="text-gray-600" />
+              </button>
+            </div>
 
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-gray-900 truncate pr-2">{selectedLabel?.name || 'Select a folder'}</h2>
-          <span className="text-xs text-gray-500 whitespace-nowrap">{filteredMessages.length} emails</span>
-        </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-gray-900 truncate pr-2">{selectedLabel?.name || 'Select a folder'}</h2>
+              <span className="text-xs text-gray-500 whitespace-nowrap">{filteredMessages.length} emails</span>
+            </div>
+          </>
+        )}
       </div>
 
       <div
@@ -110,10 +166,25 @@ const EmailList: React.FC<EmailListProps> = ({
             <div
               key={message.id}
               className={`border-b border-gray-100 p-4 transition-colors duration-200 group ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
-                } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'}`}
+                } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'} ${selectedIds.has(message.id) ? 'bg-blue-50/50' : ''}`}
             >
               <div className="flex items-start justify-between mb-1">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
+                  {/* Checkbox */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleSelection(message.id);
+                    }}
+                    className="p-1 hover:bg-gray-200 rounded flex-shrink-0 text-gray-400 hover:text-gray-600"
+                  >
+                    {selectedIds.has(message.id) ? (
+                      <CheckSquare size={18} className="text-blue-600" />
+                    ) : (
+                      <Square size={18} />
+                    )}
+                  </button>
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -135,7 +206,7 @@ const EmailList: React.FC<EmailListProps> = ({
                   <span className={`text-xs mr-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
                     {formatDate(message.date)}
                   </span>
-                  {!isInTrash && (
+                  {!isInTrash && selectedIds.size === 0 && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

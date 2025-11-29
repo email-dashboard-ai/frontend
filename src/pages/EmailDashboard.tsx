@@ -7,6 +7,7 @@ import {
   fetchMessage,
   setSelectedLabel,
   setSelectedMessage,
+  clearMessages
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
 import { GmailLabel, ParsedEmail } from '../types/gmail';
@@ -31,9 +32,11 @@ const EmailDashboard: React.FC = () => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
+  const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
+
   // Custom Hooks
   const { sidebarWidth, listWidth, startResizingSidebar, startResizingList } = useResizableLayout();
-  const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleRestoreEmail, refreshMessages } = useEmailActions();
+  const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleRestoreEmail, refreshMessages, handleBulkDelete, handleBulkMarkRead } = useEmailActions();
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -53,11 +56,25 @@ const EmailDashboard: React.FC = () => {
 
   useEffect(() => {
     if (selectedLabel) {
+      dispatch(clearMessages());
       setPage(1);
       setHasMore(true);
+      setSelectedEmailIds(new Set());
       dispatch(fetchMessages({ labelId: selectedLabel.id, page: 1 }));
     }
   }, [selectedLabel, dispatch]);
+
+  const toggleEmailSelection = useCallback((id: string) => {
+    setSelectedEmailIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  }, []);
 
   const loadMoreMessages = useCallback(() => {
     if (!isLoading && hasMore && selectedLabel) {
@@ -169,6 +186,17 @@ const EmailDashboard: React.FC = () => {
           listRef={listRef}
           onToggleStar={handleToggleStar}
           onDelete={handleDeleteEmail}
+          selectedIds={selectedEmailIds}
+          onToggleSelection={toggleEmailSelection}
+          onBulkDelete={(ids) => {
+            handleBulkDelete(ids);
+            setSelectedEmailIds(new Set());
+          }}
+          onBulkMarkRead={(ids, isRead) => {
+            handleBulkMarkRead(ids, isRead);
+            setSelectedEmailIds(new Set());
+          }}
+          onClearSelection={() => setSelectedEmailIds(new Set())}
         />
 
         <div

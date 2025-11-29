@@ -146,6 +146,18 @@ class GmailService {
     const config = apiConfig.getConfig();
     await api.post(config.endpoints.gmail.untrash(messageId));
   }
+
+  async batchDeleteEmails(ids: string[]): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.batchDelete, ids);
+  }
+
+  async batchUpdateStatus(ids: string[], isRead: boolean): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.batchStatus, ids, {
+      params: { isRead }
+    });
+  }
 }
 
 export const gmailService = new GmailService();

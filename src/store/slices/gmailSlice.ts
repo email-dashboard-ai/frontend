@@ -109,6 +109,30 @@ export const untrashEmailAction = createAsyncThunk(
   }
 );
 
+export const batchDeleteEmailsAction = createAsyncThunk(
+  'gmail/batchDelete',
+  async (ids: string[], { rejectWithValue }) => {
+    try {
+      await gmailService.batchDeleteEmails(ids);
+      return ids;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to batch delete emails');
+    }
+  }
+);
+
+export const batchUpdateStatusAction = createAsyncThunk(
+  'gmail/batchUpdateStatus',
+  async ({ ids, isRead }: { ids: string[]; isRead: boolean }, { rejectWithValue }) => {
+    try {
+      await gmailService.batchUpdateStatus(ids, isRead);
+      return { ids, isRead };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to batch update status');
+    }
+  }
+);
+
 const gmailSlice = createSlice({
   name: 'gmail',
   initialState,
@@ -122,6 +146,11 @@ const gmailSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    clearMessages: (state) => {
+      state.messages = [];
+      state.selectedMessage = null;
+      state.isLoading = false;
     },
   },
   extraReducers: (builder) => {
@@ -240,9 +269,41 @@ const gmailSlice = createSlice({
         if (state.selectedMessage?.id === messageId) {
           state.selectedMessage = null;
         }
+      })
+      // Batch Delete
+      .addCase(batchDeleteEmailsAction.fulfilled, (state, action) => {
+        const ids = action.payload;
+        state.messages = state.messages.filter(m => !ids.includes(m.id));
+        if (state.selectedMessage && ids.includes(state.selectedMessage.id)) {
+          state.selectedMessage = null;
+        }
+      })
+      // Batch Update Status
+      .addCase(batchUpdateStatusAction.fulfilled, (state, action) => {
+        const { ids, isRead } = action.payload;
+        state.messages.forEach(m => {
+          if (ids.includes(m.id)) {
+            m.isRead = isRead;
+            if (isRead) {
+              m.labelIds = m.labelIds.filter(id => id !== 'UNREAD');
+            } else {
+              if (!m.labelIds.includes('UNREAD')) m.labelIds.push('UNREAD');
+            }
+          }
+        });
+        if (state.selectedMessage && ids.includes(state.selectedMessage.id)) {
+          state.selectedMessage.isRead = isRead;
+          if (isRead) {
+            state.selectedMessage.labelIds = state.selectedMessage.labelIds.filter(id => id !== 'UNREAD');
+          } else {
+            if (!state.selectedMessage.labelIds.includes('UNREAD')) {
+              state.selectedMessage.labelIds.push('UNREAD');
+            }
+          }
+        }
       });
   },
 });
 
-export const { setSelectedLabel, setSelectedMessage, clearError } = gmailSlice.actions;
+export const { setSelectedLabel, setSelectedMessage, clearError, clearMessages } = gmailSlice.actions;
 export default gmailSlice.reducer;
