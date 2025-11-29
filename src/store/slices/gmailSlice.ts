@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { gmailService } from '../../services/gmailService';
 import type { GmailLabel, ParsedEmail, GmailState } from '../../types/gmail';
+import { appConfig } from '../../config/appConfig';
 
 const initialState: GmailState = {
   labels: [],
@@ -10,6 +11,7 @@ const initialState: GmailState = {
   selectedMessage: null,
   isLoading: false,
   error: null,
+  nextPageToken: null,
 };
 
 // Async thunks
@@ -24,14 +26,11 @@ export const fetchLabels = createAsyncThunk(
   }
 );
 
-import { appConfig } from '../../config/appConfig';
-
 export const fetchMessages = createAsyncThunk(
   'gmail/fetchMessages',
-  async ({ labelId, page = 1, limit = appConfig.gmail.defaultPageLimit, isLoadMore = false }: { labelId: string; page?: number; limit?: number; isLoadMore?: boolean }, { rejectWithValue, signal }) => {
+  async ({ labelId, pageToken, limit = appConfig.gmail.defaultPageLimit }: { labelId: string; pageToken?: string; limit?: number }, { rejectWithValue, signal }) => {
     try {
-      const messages = await gmailService.getMessages(labelId, page, limit, signal);
-      return { messages, isLoadMore };
+      return await gmailService.getMessages(labelId, pageToken, limit, signal);
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch messages');
     }
@@ -140,6 +139,7 @@ const gmailSlice = createSlice({
     setSelectedLabel: (state, action: PayloadAction<GmailLabel | null>) => {
       state.selectedLabel = action.payload;
       state.selectedMessage = null;
+      state.nextPageToken = null; // Reset pagination on label change
     },
     setSelectedMessage: (state, action: PayloadAction<ParsedEmail | null>) => {
       state.selectedMessage = action.payload;
@@ -151,6 +151,7 @@ const gmailSlice = createSlice({
       state.messages = [];
       state.selectedMessage = null;
       state.isLoading = false;
+      state.nextPageToken = null;
     },
   },
   extraReducers: (builder) => {
@@ -180,11 +181,8 @@ const gmailSlice = createSlice({
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (action.payload.isLoadMore) {
-          state.messages = [...state.messages, ...action.payload.messages];
-        } else {
-          state.messages = action.payload.messages;
-        }
+        state.messages = action.payload.messages;
+        state.nextPageToken = action.payload.nextPageToken;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.isLoading = false;
@@ -266,6 +264,16 @@ const gmailSlice = createSlice({
         // Remove from messages list
         state.messages = state.messages.filter(m => m.id !== messageId);
         // Clear selected message if it was deleted
+        if (state.selectedMessage?.id === messageId) {
+          state.selectedMessage = null;
+        }
+      })
+      // Untrash email
+      .addCase(untrashEmailAction.fulfilled, (state, action) => {
+        const messageId = action.payload;
+        // Remove from messages list (assuming we are not in TRASH, or if we are, it disappears)
+        state.messages = state.messages.filter(m => m.id !== messageId);
+        // Clear selected message if it was moved
         if (state.selectedMessage?.id === messageId) {
           state.selectedMessage = null;
         }

@@ -1,5 +1,5 @@
 import { api, apiConfig } from '../config/apiConfig';
-import type { GmailLabel, GmailMessage, ParsedEmail } from '../types/gmail';
+import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse } from '../types/gmail';
 import type { ApiResponse } from '../types/api';
 import { appConfig } from '../config/appConfig';
 
@@ -104,14 +104,21 @@ class GmailService {
     return data.data;
   }
 
-  async getMessages(labelId: string = 'INBOX', page: number = 1, limit: number = appConfig.gmail.defaultPageLimit, signal?: AbortSignal): Promise<ParsedEmail[]> {
+  async getMessages(labelId: string = 'INBOX', pageToken?: string, limit: number = appConfig.gmail.defaultPageLimit, signal?: AbortSignal): Promise<EmailPageResponse> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<GmailMessage[]>>(
+    const { data } = await api.get<ApiResponse<EmailPageResponse>>(
       config.endpoints.gmail.list(labelId),
-      { params: { page, limit }, signal }
+      { params: { pageToken, limit }, signal }
     );
 
-    return data.data.map(msg => this.parseMessage(msg));
+    // The backend now returns { messages: [...], nextPageToken: "..." }
+    // We need to parse the messages
+    const parsedMessages = data.data.messages.map(msg => this.parseMessage(msg));
+
+    return {
+      messages: parsedMessages,
+      nextPageToken: data.data.nextPageToken
+    };
   }
 
   async getMessage(messageId: string, signal?: AbortSignal): Promise<ParsedEmail> {

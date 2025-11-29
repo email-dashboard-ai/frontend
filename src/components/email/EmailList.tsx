@@ -13,7 +13,6 @@ interface EmailListProps {
   setSearchQuery: (query: string) => void;
   onRefresh: () => void;
   onMessageClick: (message: ParsedEmail) => void;
-  onScroll: (e: React.UIEvent<HTMLDivElement>) => void;
   listRef: React.RefObject<HTMLDivElement | null>;
   onToggleStar: (id: string, isStarred: boolean) => void;
   onDelete: (id: string) => void;
@@ -22,6 +21,10 @@ interface EmailListProps {
   onBulkDelete: (ids: string[]) => void;
   onBulkMarkRead: (ids: string[], isRead: boolean) => void;
   onClearSelection: () => void;
+  onNextPage: () => void;
+  onPrevPage: () => void;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 
 const EmailList: React.FC<EmailListProps> = ({
@@ -35,7 +38,6 @@ const EmailList: React.FC<EmailListProps> = ({
   setSearchQuery,
   onRefresh,
   onMessageClick,
-  onScroll,
   listRef,
   onToggleStar,
   onDelete,
@@ -43,7 +45,11 @@ const EmailList: React.FC<EmailListProps> = ({
   onToggleSelection,
   onBulkDelete,
   onBulkMarkRead,
-  onClearSelection
+  onClearSelection,
+  onNextPage,
+  onPrevPage,
+  hasNextPage,
+  hasPrevPage
 }) => {
   const isInTrash = selectedLabel?.id === 'TRASH';
 
@@ -150,7 +156,6 @@ const EmailList: React.FC<EmailListProps> = ({
 
       <div
         className="flex-1 overflow-y-auto custom-scrollbar select-none"
-        onScroll={onScroll}
       >
         {isLoading && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
@@ -162,87 +167,108 @@ const EmailList: React.FC<EmailListProps> = ({
             <p>No data available</p>
           </div>
         ) : (
-          filteredMessages.map(message => (
-            <div
-              key={message.id}
-              className={`border-b border-gray-100 p-4 transition-colors duration-200 group ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
-                } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'} ${selectedIds.has(message.id) ? 'bg-blue-50/50' : ''}`}
-            >
-              <div className="flex items-start justify-between mb-1">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  {/* Checkbox */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleSelection(message.id);
-                    }}
-                    className="p-1 hover:bg-gray-200 rounded flex-shrink-0 text-gray-400 hover:text-gray-600"
-                  >
-                    {selectedIds.has(message.id) ? (
-                      <CheckSquare size={18} className="text-blue-600" />
-                    ) : (
-                      <Square size={18} />
-                    )}
-                  </button>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleStar(message.id, message.isStarred);
-                    }}
-                    className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
-                    title={message.isStarred ? 'Remove star' : 'Add star'}
-                  >
-                    <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
-                  </button>
-                  <span
-                    className={`text-sm truncate cursor-pointer ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
-                    onClick={() => onMessageClick(message)}
-                  >
-                    {extractName(message.from)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className={`text-xs mr-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                    {formatDate(message.date)}
-                  </span>
-                  {!isInTrash && selectedIds.size === 0 && (
+          <>
+            {filteredMessages.map(message => (
+              <div
+                key={message.id}
+                className={`border-b border-gray-100 p-4 transition-colors duration-200 group ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
+                  } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'} ${selectedIds.has(message.id) ? 'bg-blue-50/50' : ''}`}
+              >
+                <div className="flex items-start justify-between mb-1">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {/* Checkbox */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDelete(message.id);
+                        onToggleSelection(message.id);
                       }}
-                      className="p-1.5 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete"
+                      className="p-1 hover:bg-gray-200 rounded flex-shrink-0 text-gray-400 hover:text-gray-600"
                     >
-                      <Trash2 size={16} className="text-gray-400 hover:text-red-600" />
+                      {selectedIds.has(message.id) ? (
+                        <CheckSquare size={18} className="text-blue-600" />
+                      ) : (
+                        <Square size={18} />
+                      )}
                     </button>
-                  )}
-                </div>
-              </div>
 
-              <div
-                className={`text-sm mb-1 truncate cursor-pointer ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-600'}`}
-                onClick={() => onMessageClick(message)}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onToggleStar(message.id, message.isStarred);
+                      }}
+                      className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
+                      title={message.isStarred ? 'Remove star' : 'Add star'}
+                    >
+                      <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
+                    </button>
+                    <span
+                      className={`text-sm truncate cursor-pointer ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+                      onClick={() => onMessageClick(message)}
+                    >
+                      {extractName(message.from)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className={`text-xs mr-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                      {formatDate(message.date)}
+                    </span>
+                    {!isInTrash && selectedIds.size === 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(message.id);
+                        }}
+                        className="p-1.5 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} className="text-gray-400 hover:text-red-600" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div
+                  className={`text-sm mb-1 truncate cursor-pointer ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-600'}`}
+                  onClick={() => onMessageClick(message)}
+                >
+                  {message.subject || '(No Subject)'}
+                </div>
+
+                <p className="text-xs text-gray-500 truncate line-clamp-1">{message.snippet}</p>
+
+                {message.attachments.length > 0 && (
+                  <div className="flex items-center gap-1 mt-2">
+                    <Paperclip size={12} className="text-gray-400" />
+                    <span className="text-xs text-gray-500">{message.attachments.length} attachment(s)</span>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Pagination Controls */}
+            <div className="p-4 flex items-center justify-between border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={onPrevPage}
+                disabled={!hasPrevPage || isLoading}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${!hasPrevPage || isLoading
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
+                  }`}
               >
-                {message.subject || '(No Subject)'}
-              </div>
-
-              <p className="text-xs text-gray-500 truncate line-clamp-1">{message.snippet}</p>
-
-              {message.attachments.length > 0 && (
-                <div className="flex items-center gap-1 mt-2">
-                  <Paperclip size={12} className="text-gray-400" />
-                  <span className="text-xs text-gray-500">{message.attachments.length} attachment(s)</span>
-                </div>
-              )}
+                Previous
+              </button>
+              <button
+                onClick={onNextPage}
+                disabled={!hasNextPage || isLoading}
+                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${!hasNextPage || isLoading
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
+                  }`}
+              >
+                Next
+              </button>
             </div>
-          ))
-        )}
-        {isLoading && messages.length > 0 && (
-          <div className="p-4 flex justify-center">
-            <Loader2 className="animate-spin text-blue-600" size={24} />
-          </div>
+          </>
         )}
       </div>
     </div>
