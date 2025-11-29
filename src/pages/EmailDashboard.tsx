@@ -383,12 +383,20 @@ const EmailDashboard: React.FC = () => {
                     } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'}`}
                 >
                   <div className="flex items-start justify-between mb-1">
-                    <div
-                      className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
-                      onClick={() => handleMessageClick(message)}
-                    >
-                      {message.isStarred && <Star size={14} className="text-yellow-500 fill-yellow-500 flex-shrink-0" />}
-                      <span className={`text-sm truncate ${!message.isRead ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleStar(message.id, message.isStarred);
+                        }}
+                        className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
+                      >
+                        <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
+                      </button>
+                      <span
+                        className={`text-sm truncate cursor-pointer ${!message.isRead ? 'font-bold text-gray-900' : 'text-gray-700'}`}
+                        onClick={() => handleMessageClick(message)}
+                      >
                         {extractName(message.from)}
                       </span>
                     </div>
@@ -396,17 +404,6 @@ const EmailDashboard: React.FC = () => {
                       <span className={`text-xs mr-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
                         {formatDate(message.date)}
                       </span>
-                      {/* Quick actions */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleStar(message.id, message.isStarred);
-                        }}
-                        className="p-1.5 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        title={message.isStarred ? 'Remove star' : 'Add star'}
-                      >
-                        <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
-                      </button>
                       {!isInTrash && (
                         <button
                           onClick={(e) => {
