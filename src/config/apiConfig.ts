@@ -20,6 +20,11 @@ export interface ApiConfig {
       labels: string;
       list: (labelId: string) => string;
       get: (id: string) => string;
+      markRead: (id: string) => string;
+      markUnread: (id: string) => string;
+      toggleStar: (id: string) => string;
+      delete: (id: string) => string;
+      untrash: (id: string) => string;
     };
   };
   headers: Record<string, string>;
@@ -50,6 +55,11 @@ class ApiConfigManager {
           labels: "/api/gmail/labels",
           list: (labelId: string) => `/api/gmail/list/${labelId}`,
           get: (id: string) => `/api/gmail/${id}`,
+          markRead: (id: string) => `/api/gmail/${id}/read`,
+          markUnread: (id: string) => `/api/gmail/${id}/unread`,
+          toggleStar: (id: string) => `/api/gmail/${id}/star`,
+          delete: (id: string) => `/api/gmail/${id}`,
+          untrash: (id: string) => `/api/gmail/${id}/untrash`,
         },
       },
       headers: {

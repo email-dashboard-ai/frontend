@@ -49,6 +49,66 @@ export const fetchMessage = createAsyncThunk(
   }
 );
 
+export const markEmailAsRead = createAsyncThunk(
+  'gmail/markAsRead',
+  async (messageId: string, { rejectWithValue }) => {
+    try {
+      await gmailService.markAsRead(messageId);
+      return messageId;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to mark as read');
+    }
+  }
+);
+
+export const markEmailAsUnread = createAsyncThunk(
+  'gmail/markAsUnread',
+  async (messageId: string, { rejectWithValue }) => {
+    try {
+      await gmailService.markAsUnread(messageId);
+      return messageId;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to mark as unread');
+    }
+  }
+);
+
+export const toggleEmailStar = createAsyncThunk(
+  'gmail/toggleStar',
+  async ({ messageId, starred }: { messageId: string; starred: boolean }, { rejectWithValue }) => {
+    try {
+      await gmailService.toggleStar(messageId, starred);
+      return { messageId, starred };
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to toggle star');
+    }
+  }
+);
+
+export const deleteEmailAction = createAsyncThunk(
+  'gmail/deleteEmail',
+  async (messageId: string, { rejectWithValue }) => {
+    try {
+      await gmailService.deleteEmail(messageId);
+      return messageId;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to delete email');
+    }
+  }
+);
+
+export const untrashEmailAction = createAsyncThunk(
+  'gmail/untrashEmail',
+  async (messageId: string, { rejectWithValue }) => {
+    try {
+      await gmailService.untrashEmail(messageId);
+      return messageId;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to restore email');
+    }
+  }
+);
+
 const gmailSlice = createSlice({
   name: 'gmail',
   initialState,
@@ -113,6 +173,73 @@ const gmailSlice = createSlice({
       .addCase(fetchMessage.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      // Mark as read
+      .addCase(markEmailAsRead.fulfilled, (state, action) => {
+        const messageId = action.payload;
+        // Update in messages list
+        const message = state.messages.find(m => m.id === messageId);
+        if (message) {
+          message.isRead = true;
+          message.labelIds = message.labelIds.filter(id => id !== 'UNREAD');
+        }
+        // Update selected message
+        if (state.selectedMessage?.id === messageId) {
+          state.selectedMessage.isRead = true;
+          state.selectedMessage.labelIds = state.selectedMessage.labelIds.filter(id => id !== 'UNREAD');
+        }
+      })
+      // Mark as unread
+      .addCase(markEmailAsUnread.fulfilled, (state, action) => {
+        const messageId = action.payload;
+        // Update in messages list
+        const message = state.messages.find(m => m.id === messageId);
+        if (message) {
+          message.isRead = false;
+          if (!message.labelIds.includes('UNREAD')) {
+            message.labelIds.push('UNREAD');
+          }
+        }
+        // Update selected message
+        if (state.selectedMessage?.id === messageId) {
+          state.selectedMessage.isRead = false;
+          if (!state.selectedMessage.labelIds.includes('UNREAD')) {
+            state.selectedMessage.labelIds.push('UNREAD');
+          }
+        }
+      })
+      // Toggle star
+      .addCase(toggleEmailStar.fulfilled, (state, action) => {
+        const { messageId, starred } = action.payload;
+        // Update in messages list
+        const message = state.messages.find(m => m.id === messageId);
+        if (message) {
+          message.isStarred = starred;
+          if (starred && !message.labelIds.includes('STARRED')) {
+            message.labelIds.push('STARRED');
+          } else if (!starred) {
+            message.labelIds = message.labelIds.filter(id => id !== 'STARRED');
+          }
+        }
+        // Update selected message
+        if (state.selectedMessage?.id === messageId) {
+          state.selectedMessage.isStarred = starred;
+          if (starred && !state.selectedMessage.labelIds.includes('STARRED')) {
+            state.selectedMessage.labelIds.push('STARRED');
+          } else if (!starred) {
+            state.selectedMessage.labelIds = state.selectedMessage.labelIds.filter(id => id !== 'STARRED');
+          }
+        }
+      })
+      // Delete email
+      .addCase(deleteEmailAction.fulfilled, (state, action) => {
+        const messageId = action.payload;
+        // Remove from messages list
+        state.messages = state.messages.filter(m => m.id !== messageId);
+        // Clear selected message if it was deleted
+        if (state.selectedMessage?.id === messageId) {
+          state.selectedMessage = null;
+        }
       });
   },
 });

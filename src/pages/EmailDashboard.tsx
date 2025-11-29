@@ -1,18 +1,24 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '../store';
 import {
   fetchLabels,
   fetchMessages,
   fetchMessage,
   setSelectedLabel,
-  setSelectedMessage
+  setSelectedMessage,
+  markEmailAsRead,
+  markEmailAsUnread,
+  toggleEmailStar,
+  deleteEmailAction,
+  untrashEmailAction
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
 import type { GmailLabel, ParsedEmail } from '../types/gmail';
 import {
   Inbox, Star, Send, FileText, Trash2, Folder, Search, RefreshCw,
   Mail, MailOpen, Paperclip, Reply, ReplyAll, Forward, LogOut,
-  Loader2, ChevronLeft, X
+  Loader2, ChevronLeft, X, Menu
 } from 'lucide-react';
 
 const EmailDashboard: React.FC = () => {
@@ -23,7 +29,8 @@ const EmailDashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true); // Assuming we have more until proven otherwise or API tells us
+  const [hasMore, setHasMore] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Resizable columns state
   const [sidebarWidth, setSidebarWidth] = useState(240);
@@ -120,7 +127,52 @@ const EmailDashboard: React.FC = () => {
     dispatch(setSelectedMessage(message));
     dispatch(fetchMessage(message.id));
     setIsMobileDetailView(true);
+
+    // Auto mark as read when opening email
+    if (!message.isRead) {
+      dispatch(markEmailAsRead(message.id));
+    }
   };
+
+  const handleToggleRead = useCallback((messageId: string, isRead: boolean) => {
+    if (isRead) {
+      dispatch(markEmailAsUnread(messageId));
+    } else {
+      dispatch(markEmailAsRead(messageId));
+    }
+  }, [dispatch]);
+
+  const handleToggleStar = useCallback((messageId: string, isStarred: boolean) => {
+    dispatch(toggleEmailStar({ messageId, starred: !isStarred }));
+  }, [dispatch]);
+
+  const handleDeleteEmail = useCallback((messageId: string) => {
+    dispatch(deleteEmailAction(messageId))
+      .unwrap()
+      .then(() => {
+        toast.success(
+          (t) => (
+            <div className="flex items-center gap-3">
+              <span>Email moved to trash</span>
+              <button
+                onClick={() => {
+                  dispatch(untrashEmailAction(messageId));
+                  toast.dismiss(t.id);
+                  toast.success('Email restored');
+                }}
+                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium"
+              >
+                Undo
+              </button>
+            </div>
+          ),
+          { duration: 5000 }
+        );
+      })
+      .catch(() => {
+        toast.error('Failed to delete email');
+      });
+  }, [dispatch]);
 
   const getLabelIcon = (labelId: string) => {
     const icons: Record<string, React.ReactNode> = {
@@ -177,11 +229,21 @@ const EmailDashboard: React.FC = () => {
     .filter(l => !l.id.startsWith('CATEGORY_') && !['CHAT', 'YELLOW_STAR', 'UNREAD'].includes(l.id))
     .sort((a, b) => getLabelPriority(a.id) - getLabelPriority(b.id));
 
+  const isInTrash = selectedLabel?.id === 'TRASH';
+
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+      <Toaster position="bottom-center" />
       {/* Header */}
       <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-10 select-none">
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors md:hidden"
+            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          >
+            <Menu size={20} />
+          </button>
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center shadow-md">
             <Mail className="text-white" size={22} />
           </div>
@@ -317,23 +379,53 @@ const EmailDashboard: React.FC = () => {
               filteredMessages.map(message => (
                 <div
                   key={message.id}
-                  onClick={() => handleMessageClick(message)}
-                  className={`border-b border-gray-100 p-4 cursor-pointer transition-all ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
+                  className={`border-b border-gray-100 p-4 transition-all group ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
                     } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'}`}
                 >
                   <div className="flex items-start justify-between mb-1">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div
+                      className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+                      onClick={() => handleMessageClick(message)}
+                    >
                       {message.isStarred && <Star size={14} className="text-yellow-500 fill-yellow-500 flex-shrink-0" />}
                       <span className={`text-sm truncate ${!message.isRead ? 'font-bold text-gray-900' : 'text-gray-700'}`}>
                         {extractName(message.from)}
                       </span>
                     </div>
-                    <span className={`text-xs ml-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
-                      {formatDate(message.date)}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span className={`text-xs mr-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                        {formatDate(message.date)}
+                      </span>
+                      {/* Quick actions */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleStar(message.id, message.isStarred);
+                        }}
+                        className="p-1.5 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        title={message.isStarred ? 'Remove star' : 'Add star'}
+                      >
+                        <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
+                      </button>
+                      {!isInTrash && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteEmail(message.id);
+                          }}
+                          className="p-1.5 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Delete"
+                        >
+                          <Trash2 size={16} className="text-gray-400 hover:text-red-600" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <h3 className={`text-sm mb-1 truncate ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+                  <h3
+                    className={`text-sm mb-1 truncate cursor-pointer ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-600'}`}
+                    onClick={() => handleMessageClick(message)}
+                  >
                     {message.subject || '(No Subject)'}
                   </h3>
 
@@ -377,7 +469,11 @@ const EmailDashboard: React.FC = () => {
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <h1 className="text-xl font-bold text-gray-900 leading-tight">{selectedMessage.subject}</h1>
                   <div className="flex items-center gap-1 flex-shrink-0">
-                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <button
+                      onClick={() => handleToggleStar(selectedMessage.id, selectedMessage.isStarred)}
+                      className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                      title={selectedMessage.isStarred ? 'Remove star' : 'Add star'}
+                    >
                       <Star size={20} className={selectedMessage.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
                     </button>
                   </div>
@@ -399,6 +495,13 @@ const EmailDashboard: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                  <button
+                    onClick={() => handleToggleRead(selectedMessage.id, selectedMessage.isRead)}
+                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap"
+                  >
+                    {selectedMessage.isRead ? <MailOpen size={16} /> : <Mail size={16} />}
+                    {selectedMessage.isRead ? 'Mark Unread' : 'Mark Read'}
+                  </button>
                   <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
                     <Reply size={16} /> Reply
                   </button>
@@ -409,7 +512,11 @@ const EmailDashboard: React.FC = () => {
                     <Forward size={16} /> Forward
                   </button>
                   <div className="flex-1"></div>
-                  <button className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors" title="Delete">
+                  <button
+                    onClick={() => handleDeleteEmail(selectedMessage.id)}
+                    className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors"
+                    title="Delete"
+                  >
                     <Trash2 size={18} />
                   </button>
                 </div>
@@ -460,7 +567,7 @@ const EmailDashboard: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
