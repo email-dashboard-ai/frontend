@@ -119,6 +119,45 @@ class GmailService {
     const { data } = await api.get<ApiResponse<GmailMessage>>(config.endpoints.gmail.get(messageId), { signal });
     return this.parseMessage(data.data);
   }
+
+  async markAsRead(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.markRead(messageId));
+  }
+
+  async markAsUnread(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.markUnread(messageId));
+  }
+
+  async toggleStar(messageId: string, starred: boolean): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.toggleStar(messageId), null, {
+      params: { starred }
+    });
+  }
+
+  async deleteEmail(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.delete(config.endpoints.gmail.delete(messageId));
+  }
+
+  async untrashEmail(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.untrash(messageId));
+  }
+
+  async batchDeleteEmails(ids: string[]): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.batchDelete, ids);
+  }
+
+  async batchUpdateStatus(ids: string[], isRead: boolean): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.batchStatus, ids, {
+      params: { isRead }
+    });
+  }
 }
 
 export const gmailService = new GmailService();
