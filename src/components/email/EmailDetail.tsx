@@ -1,6 +1,7 @@
 import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
-import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText } from 'lucide-react';
+import { gmailService } from '../../services/gmailService';
+import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download } from 'lucide-react';
 
 interface EmailDetailProps {
   isMobileDetailView: boolean;
@@ -46,6 +47,27 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
     const match = emailString.match(/<(.+)>/);
     return match ? match[1] : emailString;
   };
+
+  const [downloadingAttachments, setDownloadingAttachments] = React.useState<Set<string>>(new Set());
+
+  const handleDownload = async (attachmentId: string, filename: string) => {
+    if (!selectedMessage) return;
+
+    setDownloadingAttachments(prev => new Set(prev).add(attachmentId));
+    try {
+      await gmailService.downloadAttachment(selectedMessage.id, attachmentId, filename);
+    } catch (error) {
+      console.error('Failed to download attachment:', error);
+      alert('Failed to download attachment. Please try again.');
+    } finally {
+      setDownloadingAttachments(prev => {
+        const next = new Set(prev);
+        next.delete(attachmentId);
+        return next;
+      });
+    }
+  };
+
 
   return (
     <div className={`flex-1 bg-white flex flex-col min-w-0 ${!isMobileDetailView ? 'hidden md:flex' : 'flex'}`}>
@@ -136,14 +158,29 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {selectedMessage.attachments.map((att, idx) => (
-                    <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all group cursor-pointer">
+                    <div key={idx} className="flex items-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all group">
                       <div className="w-10 h-10 bg-white rounded border border-gray-200 flex items-center justify-center mr-3 group-hover:text-blue-600">
                         <FileText size={20} className="text-gray-400 group-hover:text-blue-500" />
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 mr-2">
                         <div className="font-medium text-sm truncate text-gray-700 group-hover:text-blue-700">{att.filename}</div>
                         <div className="text-xs text-gray-500">{(att.size / 1024).toFixed(1)} KB</div>
                       </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(att.attachmentId, att.filename);
+                        }}
+                        disabled={downloadingAttachments.has(att.attachmentId)}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Download"
+                      >
+                        {downloadingAttachments.has(att.attachmentId) ? (
+                          <Loader2 size={18} className="animate-spin text-blue-600" />
+                        ) : (
+                          <Download size={18} />
+                        )}
+                      </button>
                     </div>
                   ))}
                 </div>

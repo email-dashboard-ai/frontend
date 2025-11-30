@@ -165,6 +165,25 @@ class GmailService {
       params: { isRead }
     });
   }
+
+  async downloadAttachment(messageId: string, attachmentId: string, filename: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    const response = await api.get(config.endpoints.gmail.attachment(messageId, attachmentId), {
+      responseType: 'blob',
+    });
+
+    // Create a URL for the blob
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
 }
 
 export const gmailService = new GmailService();

@@ -27,6 +27,7 @@ export interface ApiConfig {
       untrash: (id: string) => string;
       batchDelete: string;
       batchStatus: string;
+      attachment: (messageId: string, attachmentId: string) => string;
     };
   };
   headers: Record<string, string>;
@@ -64,6 +65,7 @@ class ApiConfigManager {
           untrash: (id: string) => `/api/gmail/${id}/untrash`,
           batchDelete: "/api/gmail/batch/delete",
           batchStatus: "/api/gmail/batch/status",
+          attachment: (messageId: string, attachmentId: string) => `/api/gmail/${messageId}/attachments/${attachmentId}`,
         },
       },
       headers: {
