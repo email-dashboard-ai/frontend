@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '../store';
@@ -25,12 +26,12 @@ import { useEmailActions } from '../hooks/useEmailActions';
 const EmailDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
-  const { labels, selectedLabel, messages, selectedMessage, isLoading, error } = useAppSelector(state => state.gmail);
+  const { labels, selectedLabel, messages, selectedMessage, isLoading, error, nextPageToken } = useAppSelector(state => state.gmail);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
+  const [historyStack, setHistoryStack] = useState<string[]>([]);
 
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
 
@@ -47,7 +48,7 @@ const EmailDashboard: React.FC = () => {
 
   useEffect(() => {
     if (!selectedLabel && labels.length > 0) {
-      const inbox = labels.find(l => l.id === 'INBOX');
+      const inbox = labels.find((l: GmailLabel) => l.id === 'INBOX');
       if (inbox) {
         dispatch(setSelectedLabel(inbox));
       }
@@ -57,10 +58,10 @@ const EmailDashboard: React.FC = () => {
   useEffect(() => {
     if (selectedLabel) {
       dispatch(clearMessages());
-      setPage(1);
-      setHasMore(true);
+      setPageToken(undefined);
+      setHistoryStack([]);
       setSelectedEmailIds(new Set());
-      dispatch(fetchMessages({ labelId: selectedLabel.id, page: 1 }));
+      dispatch(fetchMessages({ labelId: selectedLabel.id }));
     }
   }, [selectedLabel, dispatch]);
 
@@ -76,29 +77,23 @@ const EmailDashboard: React.FC = () => {
     });
   }, []);
 
-  const loadMoreMessages = useCallback(() => {
-    if (!isLoading && hasMore && selectedLabel) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      dispatch(fetchMessages({ labelId: selectedLabel.id, page: nextPage, isLoadMore: true }))
-        .unwrap()
-        .then((result) => {
-          if (result.messages.length === 0) {
-            setHasMore(false);
-          }
-        })
-        .catch(() => {
-          setPage(prev => prev - 1);
-        });
+  const handleNextPage = () => {
+    if (nextPageToken && selectedLabel) {
+      setHistoryStack(prev => [...prev, pageToken || '']);
+      setPageToken(nextPageToken);
+      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: nextPageToken }));
     }
-  }, [isLoading, hasMore, selectedLabel, page, dispatch]);
+  };
 
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop <= clientHeight + 50) {
-      loadMoreMessages();
+  const handlePrevPage = () => {
+    if (historyStack.length > 0 && selectedLabel) {
+      const prevToken = historyStack[historyStack.length - 1];
+      const newStack = historyStack.slice(0, -1);
+      setHistoryStack(newStack);
+      setPageToken(prevToken === '' ? undefined : prevToken);
+      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: prevToken === '' ? undefined : prevToken }));
     }
-  }, [loadMoreMessages]);
+  };
 
   const handleLabelClick = (label: GmailLabel) => {
     dispatch(setSelectedLabel(label));
@@ -182,7 +177,6 @@ const EmailDashboard: React.FC = () => {
           setSearchQuery={setSearchQuery}
           onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
           onMessageClick={handleMessageClick}
-          onScroll={handleScroll}
           listRef={listRef}
           onToggleStar={handleToggleStar}
           onDelete={handleDeleteEmail}
@@ -197,6 +191,10 @@ const EmailDashboard: React.FC = () => {
             setSelectedEmailIds(new Set());
           }}
           onClearSelection={() => setSelectedEmailIds(new Set())}
+          onNextPage={handleNextPage}
+          onPrevPage={handlePrevPage}
+          hasNextPage={!!nextPageToken}
+          hasPrevPage={historyStack.length > 0}
         />
 
         <div
