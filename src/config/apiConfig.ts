@@ -30,6 +30,7 @@ export interface ApiConfig {
       attachment: (messageId: string, attachmentId: string) => string;
       send: string;
       reply: (id: string) => string;
+      thread: (id: string) => string;
     };
   };
   headers: Record<string, string>;
@@ -70,6 +71,7 @@ class ApiConfigManager {
           attachment: (messageId: string, attachmentId: string) => `/api/gmail/${messageId}/attachments/${attachmentId}`,
           send: "/api/gmail/send",
           reply: (id: string) => `/api/gmail/${id}/reply`,
+          thread: (id: string) => `/api/gmail/thread/${id}`,
         },
       },
       headers: {

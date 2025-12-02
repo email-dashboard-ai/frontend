@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from '../store';
 import {
   fetchLabels,
   fetchMessages,
-  fetchMessage,
+  fetchThread,
   setSelectedLabel,
   setSelectedMessage,
   clearMessages
@@ -104,7 +104,8 @@ const EmailDashboard: React.FC = () => {
 
   const handleMessageClick = (message: ParsedEmail) => {
     dispatch(setSelectedMessage(message));
-    dispatch(fetchMessage(message.id));
+    // dispatch(fetchMessage(message.id)); // Old way
+    dispatch(fetchThread(message.threadId)); // New way: fetch full thread
     setIsMobileDetailView(true);
 
     if (!message.isRead) {

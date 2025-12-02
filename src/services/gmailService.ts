@@ -127,6 +127,12 @@ class GmailService {
     return this.parseMessage(data.data);
   }
 
+  async getThread(threadId: string, signal?: AbortSignal): Promise<ParsedEmail[]> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.get<ApiResponse<GmailMessage[]>>(config.endpoints.gmail.thread(threadId), { signal });
+    return data.data.map(msg => this.parseMessage(msg));
+  }
+
   async markAsRead(messageId: string): Promise<void> {
     const config = apiConfig.getConfig();
     await api.post(config.endpoints.gmail.markRead(messageId));

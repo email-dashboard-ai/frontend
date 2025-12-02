@@ -9,6 +9,7 @@ const initialState: GmailState = {
   selectedLabel: null,
   messages: [],
   selectedMessage: null,
+  selectedThreadMessages: [],
   isLoading: false,
   error: null,
   nextPageToken: null,
@@ -132,6 +133,17 @@ export const batchUpdateStatusAction = createAsyncThunk(
   }
 );
 
+export const fetchThread = createAsyncThunk(
+  'gmail/fetchThread',
+  async (threadId: string, { rejectWithValue, signal }) => {
+    try {
+      return await gmailService.getThread(threadId, signal);
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch thread');
+    }
+  }
+);
+
 const gmailSlice = createSlice({
   name: 'gmail',
   initialState,
@@ -139,6 +151,7 @@ const gmailSlice = createSlice({
     setSelectedLabel: (state, action: PayloadAction<GmailLabel | null>) => {
       state.selectedLabel = action.payload;
       state.selectedMessage = null;
+      state.selectedThreadMessages = [];
       state.nextPageToken = null; // Reset pagination on label change
     },
     setSelectedMessage: (state, action: PayloadAction<ParsedEmail | null>) => {
@@ -150,6 +163,7 @@ const gmailSlice = createSlice({
     clearMessages: (state) => {
       state.messages = [];
       state.selectedMessage = null;
+      state.selectedThreadMessages = [];
       state.isLoading = false;
       state.nextPageToken = null;
     },
@@ -309,6 +323,25 @@ const gmailSlice = createSlice({
             }
           }
         }
+      })
+      // Fetch thread
+      .addCase(fetchThread.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchThread.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.selectedThreadMessages = action.payload;
+        // Also update selectedMessage to be the last message in the thread if not set or if part of thread
+        if (action.payload.length > 0) {
+          // We might want to keep the specifically clicked message as 'selectedMessage',
+          // but 'selectedThreadMessages' will hold the full conversation.
+          // For now, let's ensure the selectedMessage is consistent with the thread if needed.
+        }
+      })
+      .addCase(fetchThread.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
   },
 });
