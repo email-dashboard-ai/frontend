@@ -28,6 +28,8 @@ export interface ApiConfig {
       batchDelete: string;
       batchStatus: string;
       attachment: (messageId: string, attachmentId: string) => string;
+      send: string;
+      reply: (id: string) => string;
     };
   };
   headers: Record<string, string>;
@@ -66,6 +68,8 @@ class ApiConfigManager {
           batchDelete: "/api/gmail/batch/delete",
           batchStatus: "/api/gmail/batch/status",
           attachment: (messageId: string, attachmentId: string) => `/api/gmail/${messageId}/attachments/${attachmentId}`,
+          send: "/api/gmail/send",
+          reply: (id: string) => `/api/gmail/${id}/reply`,
         },
       },
       headers: {

@@ -2,6 +2,7 @@ import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { gmailService } from '../../services/gmailService';
 import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download } from 'lucide-react';
+import ReplyComposer from './ReplyComposer';
 
 interface EmailDetailProps {
   isMobileDetailView: boolean;
@@ -26,6 +27,8 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   onDelete
 }) => {
   const isInTrash = selectedLabel?.id === 'TRASH';
+  const [showReply, setShowReply] = React.useState(false);
+  const [replyAll, setReplyAll] = React.useState(false);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -66,6 +69,16 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
         return next;
       });
     }
+  };
+
+  const handleReplyClick = (isReplyAll: boolean) => {
+    setReplyAll(isReplyAll);
+    setShowReply(true);
+  };
+
+  const handleReplyClose = () => {
+    setShowReply(false);
+    setReplyAll(false);
   };
 
 
@@ -117,10 +130,16 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
                 {selectedMessage.isRead ? <MailOpen size={16} /> : <Mail size={16} />}
                 {selectedMessage.isRead ? 'Mark Unread' : 'Mark Read'}
               </button>
-              <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
+              <button
+                onClick={() => handleReplyClick(false)}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap"
+              >
                 <Reply size={16} /> Reply
               </button>
-              <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
+              <button
+                onClick={() => handleReplyClick(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap"
+              >
                 <ReplyAll size={16} /> Reply All
               </button>
               <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors whitespace-nowrap">
@@ -187,6 +206,19 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
               </div>
             )}
           </div>
+
+          {/* Reply Composer */}
+          {showReply && selectedMessage && (
+            <ReplyComposer
+              messageId={selectedMessage.id}
+              replyTo={selectedMessage.from}
+              replyAll={replyAll}
+              originalCc={selectedMessage.cc}
+              subject={selectedMessage.subject}
+              onClose={handleReplyClose}
+              onSuccess={handleReplyClose}
+            />
+          )}
         </>
       ) : (
         <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-gray-50/50">

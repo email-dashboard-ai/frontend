@@ -12,12 +12,13 @@ import {
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
 import { GmailLabel, ParsedEmail } from '../types/gmail';
-import { Mail, LogOut, X } from 'lucide-react';
+import { Mail, LogOut, X, Edit } from 'lucide-react';
 
 // Components
 import EmailSidebar from '../components/email/EmailSidebar';
 import EmailList from '../components/email/EmailList';
 import EmailDetail from '../components/email/EmailDetail';
+import ComposeEmailModal from '../components/email/ComposeEmailModal';
 
 // Hooks
 import { useResizableLayout } from '../hooks/useResizableLayout';
@@ -32,6 +33,7 @@ const EmailDashboard: React.FC = () => {
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [historyStack, setHistoryStack] = useState<string[]>([]);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
 
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
 
@@ -123,6 +125,13 @@ const EmailDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setIsComposeOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
+          >
+            <Edit size={18} />
+            <span className="hidden sm:inline">Compose</span>
+          </button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700">
               {user?.name?.[0] || 'U'}
@@ -214,6 +223,12 @@ const EmailDashboard: React.FC = () => {
           onRestore={handleRestoreEmail}
         />
       </div>
+
+      {/* Compose Email Modal */}
+      <ComposeEmailModal
+        isOpen={isComposeOpen}
+        onClose={() => setIsComposeOpen(false)}
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { GmailLabel } from '../../types/gmail';
-import { Inbox, Star, Send, FileText, Trash2, Folder, Mail, Loader2 } from 'lucide-react';
+import { Inbox, Star, Send, FileText, Trash2, Folder, Loader2 } from 'lucide-react';
 
 interface EmailSidebarProps {
   sidebarWidth: number;
@@ -55,14 +55,7 @@ const EmailSidebar: React.FC<EmailSidebarProps> = ({
       className={`bg-white border-r border-gray-200 flex-shrink-0 flex flex-col ${isMobileDetailView ? 'hidden md:flex' : 'flex'} w-full md:w-[var(--sidebar-width)]`}
       style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
     >
-      <div className="p-4">
-        <button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2.5 font-medium flex items-center justify-center gap-2 transition-colors shadow-sm">
-          <Mail size={18} />
-          Compose
-        </button>
-      </div>
-
-      <nav className="px-2 flex-1 overflow-y-auto custom-scrollbar select-none">
+      <nav className="px-2 py-4 flex-1 overflow-y-auto custom-scrollbar select-none">
         {isLoading && labels.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="animate-spin text-gray-400" size={24} />

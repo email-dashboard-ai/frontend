@@ -184,6 +184,75 @@ class GmailService {
     link.parentNode?.removeChild(link);
     window.URL.revokeObjectURL(url);
   }
+
+  async sendEmail(params: {
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject: string;
+    body: string;
+    attachments?: File[];
+  }): Promise<void> {
+    const config = apiConfig.getConfig();
+    const formData = new FormData();
+
+    // Add JSON data as a string
+    const jsonData = {
+      to: params.to,
+      cc: params.cc || [],
+      bcc: params.bcc || [],
+      subject: params.subject,
+      body: params.body,
+    };
+    formData.append('data', JSON.stringify(jsonData));
+
+    // Add file attachments
+    if (params.attachments && params.attachments.length > 0) {
+      params.attachments.forEach((file) => {
+        formData.append('attachments', file);
+      });
+    }
+
+    await api.post(config.endpoints.gmail.send, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  async replyEmail(params: {
+    messageId: string;
+    to?: string[];
+    cc?: string[];
+    bcc?: string[];
+    body: string;
+    attachments?: File[];
+  }): Promise<void> {
+    const config = apiConfig.getConfig();
+    const formData = new FormData();
+
+    // Add JSON data as a string (no subject for replies)
+    const jsonData = {
+      to: params.to || [],
+      cc: params.cc || [],
+      bcc: params.bcc || [],
+      body: params.body,
+    };
+    formData.append('data', JSON.stringify(jsonData));
+
+    // Add file attachments
+    if (params.attachments && params.attachments.length > 0) {
+      params.attachments.forEach((file) => {
+        formData.append('attachments', file);
+      });
+    }
+
+    await api.post(config.endpoints.gmail.reply(params.messageId), formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
 }
 
 export const gmailService = new GmailService();
