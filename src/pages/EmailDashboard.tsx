@@ -133,8 +133,12 @@ const EmailDashboard: React.FC = () => {
             <span className="hidden sm:inline">Compose</span>
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700">
-              {user?.name?.[0] || 'U'}
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 overflow-hidden">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+              ) : (
+                user?.name?.[0] || 'U'
+              )}
             </div>
             <span className="text-sm font-medium text-gray-700 hidden md:block">
               {user?.name || 'User'}
