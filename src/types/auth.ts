@@ -13,6 +13,7 @@ export interface AuthState {
   refreshToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isSessionExpired: boolean;
   error: string | null;
 }
 

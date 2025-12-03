@@ -8,7 +8,7 @@ import { SessionRestorer } from './components/auth/SessionRestorer';
 import { setStoreForApi } from './config/apiConfig';
 
 // Connect store to API for in-memory token access
-setStoreForApi(store);
+setStoreForApi({ getState: store.getState, dispatch: store.dispatch });
 
 // Create MUI theme
 const theme = createTheme({

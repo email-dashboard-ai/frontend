@@ -4,7 +4,6 @@
  */
 
 import axios from "axios";
-import toast from "react-hot-toast";
 import type { RootState } from "../store";
 
 export interface ApiConfig {
@@ -103,9 +102,9 @@ export const api = axios.create({
 });
 
 // Store reference for interceptor
-let store: { getState: () => RootState } | null = null;
+let store: { getState: () => RootState; dispatch: any } | null = null;
 
-export const setStoreForApi = (storeInstance: { getState: () => RootState }) => {
+export const setStoreForApi = (storeInstance: { getState: () => RootState; dispatch: any }) => {
   store = storeInstance;
 };
 
@@ -192,8 +191,10 @@ api.interceptors.response.use(
 
             // Refresh failed - logout
             localStorage.removeItem("persist:auth");
-            toast.error("Session expired. Please login again.");
-            window.location.href = "/login";
+            if (store) {
+              const { handleSessionExpiry } = await import("../store/slices/authSlice");
+              store.dispatch(handleSessionExpiry());
+            }
             return Promise.reject(refreshError);
           }
         }
@@ -202,8 +203,10 @@ api.interceptors.response.use(
       // No refresh token - logout
       isRefreshing = false;
       localStorage.removeItem("persist:auth");
-      toast.error("Session expired. Please login again.");
-      window.location.href = "/login";
+      if (store) {
+        const { handleSessionExpiry } = await import("../store/slices/authSlice");
+        store.dispatch(handleSessionExpiry());
+      }
     }
 
     return Promise.reject(error);
