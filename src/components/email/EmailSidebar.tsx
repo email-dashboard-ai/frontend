@@ -1,6 +1,6 @@
 import React from 'react';
 import { GmailLabel } from '../../types/gmail';
-import { Inbox, Star, Send, FileText, Trash2, Folder, Loader2 } from 'lucide-react';
+import { Inbox, Star, Send, FileText, Trash2, Folder, Loader2, Edit2 } from 'lucide-react';
 
 interface EmailSidebarProps {
   sidebarWidth: number;
@@ -10,6 +10,7 @@ interface EmailSidebarProps {
   isLoading: boolean;
   onLabelClick: (label: GmailLabel) => void;
   sidebarRef: React.RefObject<HTMLDivElement | null>;
+  onCompose: () => void;
 }
 
 const EmailSidebar: React.FC<EmailSidebarProps> = ({
@@ -19,7 +20,8 @@ const EmailSidebar: React.FC<EmailSidebarProps> = ({
   selectedLabel,
   isLoading,
   onLabelClick,
-  sidebarRef
+  sidebarRef,
+  onCompose
 }) => {
   const getLabelIcon = (labelId: string) => {
     const icons: Record<string, React.ReactNode> = {
@@ -55,7 +57,16 @@ const EmailSidebar: React.FC<EmailSidebarProps> = ({
       className={`bg-white border-r border-gray-200 flex-shrink-0 flex flex-col ${isMobileDetailView ? 'hidden md:flex' : 'flex'} w-full md:w-[var(--sidebar-width)]`}
       style={{ '--sidebar-width': `${sidebarWidth}px` } as React.CSSProperties}
     >
-      <nav className="px-2 py-4 flex-1 overflow-y-auto custom-scrollbar select-none">
+      <div className="p-4 pb-2">
+        <button
+          onClick={onCompose}
+          className="flex items-center gap-3 px-6 py-4 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded-2xl transition-colors shadow-sm hover:shadow-md w-fit"
+        >
+          <Edit2 size={24} />
+          <span className="font-medium text-base">Compose</span>
+        </button>
+      </div>
+      <nav className="px-2 py-2 flex-1 overflow-y-auto custom-scrollbar select-none">
         {isLoading && labels.length === 0 ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="animate-spin text-gray-400" size={24} />

@@ -76,6 +76,7 @@ export interface GmailState {
   isLoading: boolean;
   error: string | null;
   nextPageToken: string | null;
+  knownUsers?: Record<string, { email: string; name: string; avatar: string | null }>;
 }
 
 export interface EmailPageResponse {
