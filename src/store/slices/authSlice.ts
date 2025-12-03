@@ -14,6 +14,7 @@ const initialState: AuthState = {
   refreshToken: null,
   isLoading: false,
   isAuthenticated: false,
+  isSessionExpired: false,
   error: null,
 };
 
@@ -104,7 +105,15 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.refreshToken = null;
       state.isAuthenticated = false;
+      state.isSessionExpired = false;
       state.user = null;
+    },
+    handleSessionExpiry: (state) => {
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.isAuthenticated = false;
+      state.user = null;
+      state.isSessionExpired = true;
     },
   },
   extraReducers: (builder) => {
@@ -193,5 +202,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setTokens, clearTokens } = authSlice.actions;
+export const { clearError, setTokens, clearTokens, handleSessionExpiry } = authSlice.actions;
 export default authSlice.reducer;
