@@ -21,6 +21,7 @@ interface DecodedToken {
   // Add other claims if known
   name?: string;
   userId?: string;
+  avatar?: string;
 }
 
 class AuthService {
@@ -31,6 +32,7 @@ class AuthService {
         id: decoded.userId || decoded.sub, // Fallback to email as ID if userId is missing
         email: decoded.sub,
         name: decoded.name || decoded.sub.split('@')[0], // Fallback to email prefix
+        avatar: decoded.avatar,
         createdAt: new Date().toISOString(), // Dummy date
         updatedAt: new Date().toISOString(), // Dummy date
       };

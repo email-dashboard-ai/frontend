@@ -20,6 +20,17 @@ export interface ApiConfig {
       labels: string;
       list: (labelId: string) => string;
       get: (id: string) => string;
+      markRead: (id: string) => string;
+      markUnread: (id: string) => string;
+      toggleStar: (id: string) => string;
+      delete: (id: string) => string;
+      untrash: (id: string) => string;
+      batchDelete: string;
+      batchStatus: string;
+      attachment: (messageId: string, attachmentId: string) => string;
+      send: string;
+      reply: (id: string) => string;
+      thread: (id: string) => string;
     };
   };
   headers: Record<string, string>;
@@ -50,6 +61,17 @@ class ApiConfigManager {
           labels: "/api/gmail/labels",
           list: (labelId: string) => `/api/gmail/list/${labelId}`,
           get: (id: string) => `/api/gmail/${id}`,
+          markRead: (id: string) => `/api/gmail/${id}/read`,
+          markUnread: (id: string) => `/api/gmail/${id}/unread`,
+          toggleStar: (id: string) => `/api/gmail/${id}/star`,
+          delete: (id: string) => `/api/gmail/${id}`,
+          untrash: (id: string) => `/api/gmail/${id}/untrash`,
+          batchDelete: "/api/gmail/batch/delete",
+          batchStatus: "/api/gmail/batch/status",
+          attachment: (messageId: string, attachmentId: string) => `/api/gmail/${messageId}/attachments/${attachmentId}`,
+          send: "/api/gmail/send",
+          reply: (id: string) => `/api/gmail/${id}/reply`,
+          thread: (id: string) => `/api/gmail/thread/${id}`,
         },
       },
       headers: {

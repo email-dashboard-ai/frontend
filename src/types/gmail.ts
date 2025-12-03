@@ -72,6 +72,13 @@ export interface GmailState {
   selectedLabel: GmailLabel | null;
   messages: ParsedEmail[];
   selectedMessage: ParsedEmail | null;
+  selectedThreadMessages: ParsedEmail[];
   isLoading: boolean;
   error: string | null;
+  nextPageToken: string | null;
+}
+
+export interface EmailPageResponse {
+  messages: ParsedEmail[];
+  nextPageToken: string | null;
 }

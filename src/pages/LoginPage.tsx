@@ -59,9 +59,6 @@ const LoginPage: React.FC = () => {
             <Typography variant="h4" className="font-bold text-slate-900 mb-2">
               AI Email Flow
             </Typography>
-            <Typography variant="body1" className="text-slate-600">
-              Biến Inbox hỗn độn thành bảng Kanban hiệu quả
-            </Typography>
           </Box>
 
           {/* Error Alert */}

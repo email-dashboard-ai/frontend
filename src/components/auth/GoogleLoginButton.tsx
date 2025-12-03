@@ -23,7 +23,7 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     flow: "auth-code",
 
     // 2. Request the same scopes you set in Google Cloud Console
-    scope: "https://www.googleapis.com/auth/gmail.readonly",
+    scope: "https://www.googleapis.com/auth/gmail.modify",
 
     onSuccess: async (codeResponse) => {
       console.log("Received Auth Code from Google:", codeResponse.code);

@@ -1,5 +1,5 @@
 import { api, apiConfig } from '../config/apiConfig';
-import type { GmailLabel, GmailMessage, ParsedEmail } from '../types/gmail';
+import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse } from '../types/gmail';
 import type { ApiResponse } from '../types/api';
 import { appConfig } from '../config/appConfig';
 
@@ -104,20 +104,160 @@ class GmailService {
     return data.data;
   }
 
-  async getMessages(labelId: string = 'INBOX', page: number = 1, limit: number = appConfig.gmail.defaultPageLimit, signal?: AbortSignal): Promise<ParsedEmail[]> {
+  async getMessages(labelId: string = 'INBOX', pageToken?: string, limit: number = appConfig.gmail.defaultPageLimit, signal?: AbortSignal): Promise<EmailPageResponse> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<GmailMessage[]>>(
+    const { data } = await api.get<ApiResponse<EmailPageResponse>>(
       config.endpoints.gmail.list(labelId),
-      { params: { page, limit }, signal }
+      { params: { pageToken, limit }, signal }
     );
 
-    return data.data.map(msg => this.parseMessage(msg));
+    // The backend now returns { messages: [...], nextPageToken: "..." }
+    // We need to parse the messages
+    const parsedMessages = data.data.messages.map(msg => this.parseMessage(msg));
+
+    return {
+      messages: parsedMessages,
+      nextPageToken: data.data.nextPageToken
+    };
   }
 
   async getMessage(messageId: string, signal?: AbortSignal): Promise<ParsedEmail> {
     const config = apiConfig.getConfig();
     const { data } = await api.get<ApiResponse<GmailMessage>>(config.endpoints.gmail.get(messageId), { signal });
     return this.parseMessage(data.data);
+  }
+
+  async getThread(threadId: string, signal?: AbortSignal): Promise<ParsedEmail[]> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.get<ApiResponse<GmailMessage[]>>(config.endpoints.gmail.thread(threadId), { signal });
+    return data.data.map(msg => this.parseMessage(msg));
+  }
+
+  async markAsRead(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.markRead(messageId));
+  }
+
+  async markAsUnread(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.markUnread(messageId));
+  }
+
+  async toggleStar(messageId: string, starred: boolean): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.toggleStar(messageId), null, {
+      params: { starred }
+    });
+  }
+
+  async deleteEmail(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.delete(config.endpoints.gmail.delete(messageId));
+  }
+
+  async untrashEmail(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.untrash(messageId));
+  }
+
+  async batchDeleteEmails(ids: string[]): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.batchDelete, ids);
+  }
+
+  async batchUpdateStatus(ids: string[], isRead: boolean): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.batchStatus, ids, {
+      params: { isRead }
+    });
+  }
+
+  async downloadAttachment(messageId: string, attachmentId: string, filename: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    const response = await api.get(config.endpoints.gmail.attachment(messageId, attachmentId), {
+      responseType: 'blob',
+    });
+
+    // Create a URL for the blob
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up
+    link.parentNode?.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  }
+
+  async sendEmail(params: {
+    to: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject: string;
+    body: string;
+    attachments?: File[];
+  }): Promise<void> {
+    const config = apiConfig.getConfig();
+    const formData = new FormData();
+
+    // Add JSON data as a string
+    const jsonData = {
+      to: params.to,
+      cc: params.cc || [],
+      bcc: params.bcc || [],
+      subject: params.subject,
+      body: params.body,
+    };
+    formData.append('data', JSON.stringify(jsonData));
+
+    // Add file attachments
+    if (params.attachments && params.attachments.length > 0) {
+      params.attachments.forEach((file) => {
+        formData.append('attachments', file);
+      });
+    }
+
+    await api.post(config.endpoints.gmail.send, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  async replyEmail(params: {
+    messageId: string;
+    to?: string[];
+    cc?: string[];
+    bcc?: string[];
+    body: string;
+    attachments?: File[];
+  }): Promise<void> {
+    const config = apiConfig.getConfig();
+    const formData = new FormData();
+
+    // Add JSON data as a string (no subject for replies)
+    const jsonData = {
+      to: params.to || [],
+      cc: params.cc || [],
+      bcc: params.bcc || [],
+      body: params.body,
+    };
+    formData.append('data', JSON.stringify(jsonData));
+
+    // Add file attachments
+    if (params.attachments && params.attachments.length > 0) {
+      params.attachments.forEach((file) => {
+        formData.append('attachments', file);
+      });
+    }
+
+    await api.post(config.endpoints.gmail.reply(params.messageId), formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
   }
 }
 
