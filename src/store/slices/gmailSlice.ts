@@ -156,6 +156,7 @@ const gmailSlice = createSlice({
     },
     setSelectedMessage: (state, action: PayloadAction<ParsedEmail | null>) => {
       state.selectedMessage = action.payload;
+      state.selectedThreadMessages = [];
     },
     clearError: (state) => {
       state.error = null;
