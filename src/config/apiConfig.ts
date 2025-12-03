@@ -4,6 +4,7 @@
  */
 
 import axios from "axios";
+import toast from "react-hot-toast";
 import type { RootState } from "../store";
 
 export interface ApiConfig {
@@ -191,6 +192,7 @@ api.interceptors.response.use(
 
             // Refresh failed - logout
             localStorage.removeItem("persist:auth");
+            toast.error("Session expired. Please login again.");
             window.location.href = "/login";
             return Promise.reject(refreshError);
           }
@@ -200,6 +202,7 @@ api.interceptors.response.use(
       // No refresh token - logout
       isRefreshing = false;
       localStorage.removeItem("persist:auth");
+      toast.error("Session expired. Please login again.");
       window.location.href = "/login";
     }
 
