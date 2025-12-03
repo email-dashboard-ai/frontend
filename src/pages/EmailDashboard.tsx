@@ -12,7 +12,7 @@ import {
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
 import { GmailLabel, ParsedEmail } from '../types/gmail';
-import { Mail, LogOut, X, Edit } from 'lucide-react';
+import { Mail, LogOut, X, Search } from 'lucide-react';
 
 // Components
 import EmailSidebar from '../components/email/EmailSidebar';
@@ -104,8 +104,7 @@ const EmailDashboard: React.FC = () => {
 
   const handleMessageClick = (message: ParsedEmail) => {
     dispatch(setSelectedMessage(message));
-    // dispatch(fetchMessage(message.id)); // Old way
-    dispatch(fetchThread(message.threadId)); // New way: fetch full thread
+    dispatch(fetchThread(message.threadId));
     setIsMobileDetailView(true);
 
     if (!message.isRead) {
@@ -125,14 +124,20 @@ const EmailDashboard: React.FC = () => {
           <h1 className="text-xl font-bold text-gray-900">Gmail Dashboard</h1>
         </div>
 
+        <div className="flex-1 max-w-2xl mx-8 relative hidden md:block">
+          <div className="relative group">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-blue-600 transition-colors" size={20} />
+            <input
+              type="text"
+              placeholder="Search mail"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-gray-100 border-none rounded-lg pl-12 pr-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all shadow-sm"
+            />
+          </div>
+        </div>
+
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setIsComposeOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
-          >
-            <Edit size={18} />
-            <span className="hidden sm:inline">Compose</span>
-          </button>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 overflow-hidden">
               {user?.avatar ? (
@@ -173,6 +178,7 @@ const EmailDashboard: React.FC = () => {
           isLoading={isLoading}
           onLabelClick={handleLabelClick}
           sidebarRef={sidebarRef}
+          onCompose={() => setIsComposeOpen(true)}
         />
 
         <div
@@ -188,7 +194,6 @@ const EmailDashboard: React.FC = () => {
           selectedLabel={selectedLabel}
           isLoading={isLoading}
           searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
           onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
           onMessageClick={handleMessageClick}
           listRef={listRef}

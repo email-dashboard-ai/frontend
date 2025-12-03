@@ -4,7 +4,9 @@ import { gmailService } from '../../services/gmailService';
 import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download } from 'lucide-react';
 import ReplyComposer from './ReplyComposer';
 
-import { useAppSelector } from '../../store';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { fetchUserProfiles } from '../../store/slices/gmailSlice';
+import UserAvatar from '../common/UserAvatar';
 
 interface EmailDetailProps {
   isMobileDetailView: boolean;
@@ -29,6 +31,8 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   onDelete,
   onRestore
 }) => {
+  const dispatch = useAppDispatch();
+  const { knownUsers } = useAppSelector(state => state.gmail);
   const isInTrash = selectedLabel?.id === 'TRASH';
   const [showReply, setShowReply] = React.useState(false);
   const [replyAll, setReplyAll] = React.useState(false);
@@ -94,6 +98,29 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   }, [selectedThreadMessages]);
 
   const messagesToRender = sortedMessages.length > 0 ? sortedMessages : (selectedMessage ? [selectedMessage] : []);
+
+  console.log('EmailDetail Debug:', {
+    selectedMessageId: selectedMessage?.id,
+    threadMessagesCount: selectedThreadMessages.length,
+    sortedMessagesCount: sortedMessages.length,
+    messagesToRenderCount: messagesToRender.length,
+    isLoading
+  });
+
+  React.useEffect(() => {
+    if (messagesToRender.length > 0) {
+      const uniqueSenders = Array.from(new Set(messagesToRender.map(msg => {
+        const match = msg.from.match(/<(.+)>/);
+        return match ? match[1] : msg.from;
+      })));
+
+      const unknownEmails = uniqueSenders.filter(email => !knownUsers?.[email]);
+
+      if (unknownEmails.length > 0) {
+        dispatch(fetchUserProfiles(unknownEmails));
+      }
+    }
+  }, [messagesToRender, dispatch, knownUsers]);
 
   if (!selectedMessage) {
     return (
@@ -168,9 +195,11 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
             <div key={msg.id} className={`bg-white rounded-lg border shadow-sm ${msg.id === selectedMessage.id ? 'border-blue-200 ring-1 ring-blue-200' : 'border-gray-200'}`}>
               {/* Message Header */}
               <div className="p-4 border-b border-gray-100 flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 flex-shrink-0">
-                  {extractName(msg.from)[0]}
-                </div>
+                <UserAvatar
+                  email={extractEmail(msg.from)}
+                  name={extractName(msg.from)}
+                  size="w-10 h-10"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
                     <span className="font-medium text-gray-900 truncate">{extractName(msg.from)}</span>
@@ -208,7 +237,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
                     Attachments ({msg.attachments.length})
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {msg.attachments.map((att, idx) => (
+                    {msg.attachments?.map((att, idx) => (
                       <div key={idx} className="flex items-center p-2 bg-gray-50 rounded border border-gray-200 hover:border-blue-300 transition-all group">
                         <div className="w-8 h-8 bg-white rounded border border-gray-200 flex items-center justify-center mr-3 group-hover:text-blue-600">
                           <FileText size={16} className="text-gray-400 group-hover:text-blue-500" />

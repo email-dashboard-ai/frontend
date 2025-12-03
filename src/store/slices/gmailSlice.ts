@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { gmailService } from '../../services/gmailService';
+import { userService } from '../../services/userService';
 import type { GmailLabel, ParsedEmail, GmailState } from '../../types/gmail';
 import { appConfig } from '../../config/appConfig';
 
@@ -13,9 +14,21 @@ const initialState: GmailState = {
   isLoading: false,
   error: null,
   nextPageToken: null,
+  knownUsers: {},
 };
 
 // Async thunks
+export const fetchUserProfiles = createAsyncThunk(
+  'gmail/fetchUserProfiles',
+  async (emails: string[], { rejectWithValue }) => {
+    try {
+      const profiles = await userService.getUsersByEmails(emails);
+      return profiles;
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch user profiles');
+    }
+  }
+);
 export const fetchLabels = createAsyncThunk(
   'gmail/fetchLabels',
   async (_, { rejectWithValue, signal }) => {
@@ -155,8 +168,8 @@ const gmailSlice = createSlice({
       state.nextPageToken = null; // Reset pagination on label change
     },
     setSelectedMessage: (state, action: PayloadAction<ParsedEmail | null>) => {
+      console.log('gmailSlice: setSelectedMessage', action.payload);
       state.selectedMessage = action.payload;
-      state.selectedThreadMessages = [];
     },
     clearError: (state) => {
       state.error = null;
@@ -343,6 +356,13 @@ const gmailSlice = createSlice({
       .addCase(fetchThread.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      // Fetch User Profiles
+      .addCase(fetchUserProfiles.fulfilled, (state, action) => {
+        if (!state.knownUsers) state.knownUsers = {};
+        action.payload.forEach(profile => {
+          if (state.knownUsers) state.knownUsers[profile.email] = profile;
+        });
       });
   },
 });

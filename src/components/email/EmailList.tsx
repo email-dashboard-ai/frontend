@@ -1,6 +1,9 @@
 import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
-import { Search, RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '../../store';
+import { fetchUserProfiles } from '../../store/slices/gmailSlice';
+import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare } from 'lucide-react';
+import UserAvatar from '../common/UserAvatar';
 
 interface EmailListProps {
   listWidth: number;
@@ -10,7 +13,6 @@ interface EmailListProps {
   selectedLabel: GmailLabel | null;
   isLoading: boolean;
   searchQuery: string;
-  setSearchQuery: (query: string) => void;
   onRefresh: () => void;
   onMessageClick: (message: ParsedEmail) => void;
   listRef: React.RefObject<HTMLDivElement | null>;
@@ -35,7 +37,6 @@ const EmailList: React.FC<EmailListProps> = ({
   selectedLabel,
   isLoading,
   searchQuery,
-  setSearchQuery,
   onRefresh,
   onMessageClick,
   listRef,
@@ -51,7 +52,29 @@ const EmailList: React.FC<EmailListProps> = ({
   hasNextPage,
   hasPrevPage
 }) => {
+  const dispatch = useAppDispatch();
+  const { knownUsers } = useAppSelector(state => state.gmail);
   const isInTrash = selectedLabel?.id === 'TRASH';
+
+  React.useEffect(() => {
+    if (messages.length > 0) {
+      const uniqueSenders = Array.from(new Set(messages.map(msg => {
+        const match = msg.from.match(/<(.+)>/);
+        return match ? match[1] : msg.from;
+      })));
+
+      const unknownEmails = uniqueSenders.filter(email => !knownUsers?.[email]);
+
+      if (unknownEmails.length > 0) {
+        dispatch(fetchUserProfiles(unknownEmails));
+      }
+    }
+  }, [messages, dispatch, knownUsers]);
+
+  const extractEmail = (emailString: string) => {
+    const match = emailString.match(/<(.+)>/);
+    return match ? match[1] : emailString;
+  };
 
   const extractName = (emailString: string) => {
     const match = emailString.match(/^"?([^"<]+)"?\s*</);
@@ -85,7 +108,7 @@ const EmailList: React.FC<EmailListProps> = ({
       className={`bg-white border-r border-gray-200 flex flex-col flex-shrink-0 ${isMobileDetailView ? 'hidden md:flex' : 'flex'} w-full md:w-[var(--list-width)]`}
       style={{ '--list-width': `${listWidth}px` } as React.CSSProperties}
     >
-      <div className="border-b border-gray-200 p-4 flex-shrink-0 bg-white z-10 h-[110px] flex flex-col justify-between">
+      <div className="border-b border-gray-200 p-4 flex-shrink-0 bg-white z-10 h-auto min-h-[64px] flex flex-col justify-center">
         {selectedIds.size > 0 ? (
           // Bulk Action Toolbar
           <div className="flex flex-col h-full justify-center gap-3">
@@ -126,30 +149,22 @@ const EmailList: React.FC<EmailListProps> = ({
         ) : (
           // Standard Search Toolbar
           <>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search emails..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                />
+            <div className="flex items-center justify-between w-full">
+              <h2 className="text-sm font-bold text-gray-900 truncate pr-2">{selectedLabel?.name || 'Select a folder'}</h2>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap">{filteredMessages.length} emails</span>
+                <button
+                  onClick={onRefresh}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw size={18} className="text-gray-600" />
+                </button>
               </div>
-              <button
-                onClick={onRefresh}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Refresh"
-              >
-                <RefreshCw size={18} className="text-gray-600" />
-              </button>
             </div>
 
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-gray-900 truncate pr-2">{selectedLabel?.name || 'Select a folder'}</h2>
-              <span className="text-xs text-gray-500 whitespace-nowrap">{filteredMessages.length} emails</span>
-            </div>
+
           </>
         )}
       </div>
@@ -168,7 +183,7 @@ const EmailList: React.FC<EmailListProps> = ({
           </div>
         ) : (
           <>
-            {filteredMessages.map(message => (
+            {filteredMessages?.map(message => (
               <div
                 key={message.id}
                 className={`border-b border-gray-100 p-4 transition-colors duration-200 group ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
@@ -201,6 +216,15 @@ const EmailList: React.FC<EmailListProps> = ({
                     >
                       <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
                     </button>
+
+                    {/* Avatar */}
+                    <UserAvatar
+                      email={extractEmail(message.from)}
+                      name={extractName(message.from)}
+                      size="w-8 h-8"
+                      className="mr-1"
+                    />
+
                     <span
                       className={`text-sm truncate cursor-pointer ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
                       onClick={() => onMessageClick(message)}
@@ -251,8 +275,8 @@ const EmailList: React.FC<EmailListProps> = ({
                 onClick={onPrevPage}
                 disabled={!hasPrevPage || isLoading}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${!hasPrevPage || isLoading
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
                   }`}
               >
                 Previous
@@ -261,8 +285,8 @@ const EmailList: React.FC<EmailListProps> = ({
                 onClick={onNextPage}
                 disabled={!hasNextPage || isLoading}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${!hasNextPage || isLoading
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
                   }`}
               >
                 Next
