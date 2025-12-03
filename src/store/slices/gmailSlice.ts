@@ -155,8 +155,8 @@ const gmailSlice = createSlice({
       state.nextPageToken = null; // Reset pagination on label change
     },
     setSelectedMessage: (state, action: PayloadAction<ParsedEmail | null>) => {
+      console.log('gmailSlice: setSelectedMessage', action.payload);
       state.selectedMessage = action.payload;
-      state.selectedThreadMessages = [];
     },
     clearError: (state) => {
       state.error = null;

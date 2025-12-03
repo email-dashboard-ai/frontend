@@ -95,6 +95,14 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
 
   const messagesToRender = sortedMessages.length > 0 ? sortedMessages : (selectedMessage ? [selectedMessage] : []);
 
+  console.log('EmailDetail Debug:', {
+    selectedMessageId: selectedMessage?.id,
+    threadMessagesCount: selectedThreadMessages.length,
+    sortedMessagesCount: sortedMessages.length,
+    messagesToRenderCount: messagesToRender.length,
+    isLoading
+  });
+
   if (!selectedMessage) {
     return (
       <div className={`flex-1 bg-white flex flex-col min-w-0 ${!isMobileDetailView ? 'hidden md:flex' : 'flex'}`}>
@@ -208,7 +216,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
                     Attachments ({msg.attachments.length})
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {msg.attachments.map((att, idx) => (
+                    {msg.attachments?.map((att, idx) => (
                       <div key={idx} className="flex items-center p-2 bg-gray-50 rounded border border-gray-200 hover:border-blue-300 transition-all group">
                         <div className="w-8 h-8 bg-white rounded border border-gray-200 flex items-center justify-center mr-3 group-hover:text-blue-600">
                           <FileText size={16} className="text-gray-400 group-hover:text-blue-500" />

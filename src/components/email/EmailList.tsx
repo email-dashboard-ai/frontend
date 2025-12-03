@@ -168,7 +168,7 @@ const EmailList: React.FC<EmailListProps> = ({
           </div>
         ) : (
           <>
-            {filteredMessages.map(message => (
+            {filteredMessages?.map(message => (
               <div
                 key={message.id}
                 className={`border-b border-gray-100 p-4 transition-colors duration-200 group ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
@@ -251,8 +251,8 @@ const EmailList: React.FC<EmailListProps> = ({
                 onClick={onPrevPage}
                 disabled={!hasPrevPage || isLoading}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${!hasPrevPage || isLoading
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
                   }`}
               >
                 Previous
@@ -261,8 +261,8 @@ const EmailList: React.FC<EmailListProps> = ({
                 onClick={onNextPage}
                 disabled={!hasNextPage || isLoading}
                 className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${!hasNextPage || isLoading
-                    ? 'text-gray-400 cursor-not-allowed'
-                    : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
+                  ? 'text-gray-400 cursor-not-allowed'
+                  : 'text-gray-700 hover:bg-gray-200 bg-white border border-gray-300'
                   }`}
               >
                 Next

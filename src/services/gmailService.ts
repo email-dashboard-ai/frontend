@@ -110,14 +110,25 @@ class GmailService {
       config.endpoints.gmail.list(labelId),
       { params: { pageToken, limit }, signal }
     );
+    console.log('getMessages raw response:', data);
 
-    // The backend now returns { messages: [...], nextPageToken: "..." }
-    // We need to parse the messages
-    const parsedMessages = data.data.messages.map(msg => this.parseMessage(msg));
+    let messagesRaw: any[] = [];
+    let nextPageToken: string | null = null;
+
+    if (Array.isArray(data)) {
+      messagesRaw = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      messagesRaw = data.data;
+    } else if (data.data && data.data.messages) {
+      messagesRaw = data.data.messages;
+      nextPageToken = data.data.nextPageToken;
+    }
+
+    const parsedMessages = messagesRaw.map(msg => this.parseMessage(msg));
 
     return {
       messages: parsedMessages,
-      nextPageToken: data.data.nextPageToken
+      nextPageToken: nextPageToken
     };
   }
 
@@ -130,7 +141,16 @@ class GmailService {
   async getThread(threadId: string, signal?: AbortSignal): Promise<ParsedEmail[]> {
     const config = apiConfig.getConfig();
     const { data } = await api.get<ApiResponse<GmailMessage[]>>(config.endpoints.gmail.thread(threadId), { signal });
-    return data.data.map(msg => this.parseMessage(msg));
+    console.log('getThread raw response:', data);
+
+    let messagesRaw: any[] = [];
+    if (Array.isArray(data)) {
+      messagesRaw = data;
+    } else if (data.data && Array.isArray(data.data)) {
+      messagesRaw = data.data;
+    }
+
+    return messagesRaw.map(msg => this.parseMessage(msg));
   }
 
   async markAsRead(messageId: string): Promise<void> {
