@@ -18,6 +18,7 @@ interface EmailDetailProps {
   onToggleRead: (id: string, isRead: boolean) => void;
   onDelete: (id: string) => void;
   onRestore: (id: string) => void;
+  onBack?: () => void; // Optional custom back handler
 }
 
 const EmailDetail: React.FC<EmailDetailProps> = ({
@@ -29,7 +30,8 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   onToggleStar,
   onToggleRead,
   onDelete,
-  onRestore
+  onRestore,
+  onBack
 }) => {
   const dispatch = useAppDispatch();
   const { knownUsers } = useAppSelector(state => state.gmail);
@@ -138,8 +140,11 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
 
   return (
     <div className={`flex-1 bg-white flex flex-col min-w-0 ${!isMobileDetailView ? 'hidden md:flex' : 'flex'}`}>
-      <div className="md:hidden border-b border-gray-200 p-4">
-        <button onClick={() => setIsMobileDetailView(false)} className="flex items-center gap-2 text-gray-600">
+      <div className={`border-b border-gray-200 p-4 ${onBack ? 'block' : 'md:hidden'}`}>
+        <button
+          onClick={() => onBack ? onBack() : setIsMobileDetailView(false)}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
           <ChevronLeft size={20} />
           <span>Back</span>
         </button>

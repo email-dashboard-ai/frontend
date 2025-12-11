@@ -12,13 +12,14 @@ import {
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
 import { GmailLabel, ParsedEmail } from '../types/gmail';
-import { Mail, LogOut, X, Search } from 'lucide-react';
+import { Mail, LogOut, X, Search, LayoutGrid, List as ListIcon } from 'lucide-react';
 
 // Components
 import EmailSidebar from '../components/email/EmailSidebar';
 import EmailList from '../components/email/EmailList';
 import EmailDetail from '../components/email/EmailDetail';
 import ComposeEmailModal from '../components/email/ComposeEmailModal';
+import KanbanView from '../components/email/KanbanView';
 
 // Hooks
 import { useResizableLayout } from '../hooks/useResizableLayout';
@@ -34,6 +35,7 @@ const EmailDashboard: React.FC = () => {
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [historyStack, setHistoryStack] = useState<string[]>([]);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
 
   const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
 
@@ -112,6 +114,31 @@ const EmailDashboard: React.FC = () => {
     }
   };
 
+  const handleBackToKanban = useCallback(() => {
+    setIsMobileDetailView(false);
+    dispatch(setSelectedMessage(null));
+  }, [dispatch]);
+
+  const handleKanbanUpdateStatus = useCallback(async (id: string, newStatus: 'inbox' | 'important' | 'done') => {
+    try {
+
+      if (newStatus === 'done') {
+        // Mark as read to move to Done column
+        handleToggleRead(id, false); // false = mark as read
+      } else if (newStatus === 'inbox') {
+        // Mark as unread to move back to To Do column
+        handleToggleRead(id, true); // true = mark as unread
+      }
+
+      // Refresh to update UI
+      setTimeout(() => {
+        if (selectedLabel) refreshMessages(selectedLabel.id);
+      }, 300);
+    } catch (error) {
+      console.error('Failed to update email status:', error);
+    }
+  }, [handleToggleRead, selectedLabel, refreshMessages]);
+
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       <Toaster position="bottom-center" />
@@ -124,8 +151,8 @@ const EmailDashboard: React.FC = () => {
           <h1 className="text-xl font-bold text-gray-900">Gmail Dashboard</h1>
         </div>
 
-        <div className="flex-1 max-w-2xl mx-8 relative hidden md:block">
-          <div className="relative group">
+        <div className="flex-1 max-w-2xl mx-8 relative hidden md:flex items-center gap-3">
+          <div className="relative group flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-blue-600 transition-colors" size={20} />
             <input
               type="text"
@@ -134,6 +161,29 @@ const EmailDashboard: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-gray-100 border-none rounded-lg pl-12 pr-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all shadow-sm"
             />
+          </div>
+          {/* View Toggle */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-md transition-all ${viewMode === 'list'
+                ? 'bg-white shadow-sm text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
+              title="List View"
+            >
+              <ListIcon size={18} />
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`px-3 py-2 rounded-md transition-all ${viewMode === 'kanban'
+                ? 'bg-white shadow-sm text-blue-600'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
+              title="Kanban View"
+            >
+              <LayoutGrid size={18} />
+            </button>
           </div>
         </div>
 
@@ -170,68 +220,96 @@ const EmailDashboard: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden relative">
-        <EmailSidebar
-          sidebarWidth={sidebarWidth}
-          isMobileDetailView={isMobileDetailView}
-          labels={labels}
-          selectedLabel={selectedLabel}
-          isLoading={isLoading}
-          onLabelClick={handleLabelClick}
-          sidebarRef={sidebarRef}
-          onCompose={() => setIsComposeOpen(true)}
-        />
+        {viewMode === 'list' ? (
+          <>
+            <EmailSidebar
+              sidebarWidth={sidebarWidth}
+              isMobileDetailView={isMobileDetailView}
+              labels={labels}
+              selectedLabel={selectedLabel}
+              isLoading={isLoading}
+              onLabelClick={handleLabelClick}
+              sidebarRef={sidebarRef}
+              onCompose={() => setIsComposeOpen(true)}
+            />
 
-        <div
-          className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 hidden md:block select-none"
-          onMouseDown={startResizingSidebar}
-        />
+            <div
+              className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 hidden md:block select-none"
+              onMouseDown={startResizingSidebar}
+            />
 
-        <EmailList
-          listWidth={listWidth}
-          isMobileDetailView={isMobileDetailView}
-          messages={messages}
-          selectedMessage={selectedMessage}
-          selectedLabel={selectedLabel}
-          isLoading={isLoading}
-          searchQuery={searchQuery}
-          onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
-          onMessageClick={handleMessageClick}
-          listRef={listRef}
-          onToggleStar={handleToggleStar}
-          onDelete={handleDeleteEmail}
-          selectedIds={selectedEmailIds}
-          onToggleSelection={toggleEmailSelection}
-          onBulkDelete={(ids) => {
-            handleBulkDelete(ids);
-            setSelectedEmailIds(new Set());
-          }}
-          onBulkMarkRead={(ids, isRead) => {
-            handleBulkMarkRead(ids, isRead);
-            setSelectedEmailIds(new Set());
-          }}
-          onClearSelection={() => setSelectedEmailIds(new Set())}
-          onNextPage={handleNextPage}
-          onPrevPage={handlePrevPage}
-          hasNextPage={!!nextPageToken}
-          hasPrevPage={historyStack.length > 0}
-        />
+            <EmailList
+              listWidth={listWidth}
+              isMobileDetailView={isMobileDetailView}
+              messages={messages}
+              selectedMessage={selectedMessage}
+              selectedLabel={selectedLabel}
+              isLoading={isLoading}
+              searchQuery={searchQuery}
+              onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
+              onMessageClick={handleMessageClick}
+              listRef={listRef}
+              onToggleStar={handleToggleStar}
+              onDelete={handleDeleteEmail}
+              selectedIds={selectedEmailIds}
+              onToggleSelection={toggleEmailSelection}
+              onBulkDelete={(ids) => {
+                handleBulkDelete(ids);
+                setSelectedEmailIds(new Set());
+              }}
+              onBulkMarkRead={(ids, isRead) => {
+                handleBulkMarkRead(ids, isRead);
+                setSelectedEmailIds(new Set());
+              }}
+              onClearSelection={() => setSelectedEmailIds(new Set())}
+              onNextPage={handleNextPage}
+              onPrevPage={handlePrevPage}
+              hasNextPage={!!nextPageToken}
+              hasPrevPage={historyStack.length > 0}
+            />
 
-        <div
-          className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 hidden md:block select-none"
-          onMouseDown={startResizingList}
-        />
+            <div
+              className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 hidden md:block select-none"
+              onMouseDown={startResizingList}
+            />
 
-        <EmailDetail
-          isMobileDetailView={isMobileDetailView}
-          setIsMobileDetailView={setIsMobileDetailView}
-          selectedMessage={selectedMessage}
-          isLoading={isLoading}
-          selectedLabel={selectedLabel}
-          onToggleStar={handleToggleStar}
-          onToggleRead={handleToggleRead}
-          onDelete={handleDeleteEmail}
-          onRestore={handleRestoreEmail}
-        />
+            <EmailDetail
+              isMobileDetailView={isMobileDetailView}
+              setIsMobileDetailView={setIsMobileDetailView}
+              selectedMessage={selectedMessage}
+              isLoading={isLoading}
+              selectedLabel={selectedLabel}
+              onToggleStar={handleToggleStar}
+              onToggleRead={handleToggleRead}
+              onDelete={handleDeleteEmail}
+              onRestore={handleRestoreEmail}
+            />
+          </>
+        ) : (
+          <>
+            {isMobileDetailView && selectedMessage ? (
+              <EmailDetail
+                isMobileDetailView={isMobileDetailView}
+                setIsMobileDetailView={setIsMobileDetailView}
+                selectedMessage={selectedMessage}
+                isLoading={isLoading}
+                selectedLabel={selectedLabel}
+                onToggleStar={handleToggleStar}
+                onToggleRead={handleToggleRead}
+                onDelete={handleDeleteEmail}
+                onRestore={handleRestoreEmail}
+                onBack={handleBackToKanban}
+              />
+            ) : (
+              <KanbanView
+                messages={messages}
+                onMessageClick={handleMessageClick}
+                onToggleStar={handleToggleStar}
+                onUpdateStatus={handleKanbanUpdateStatus}
+              />
+            )}
+          </>
+        )}
       </div>
 
       {/* Compose Email Modal */}

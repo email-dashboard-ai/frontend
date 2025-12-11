@@ -192,6 +192,11 @@ class GmailService {
     });
   }
 
+  async archiveEmail(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.archive(messageId));
+  }
+
   async downloadAttachment(messageId: string, attachmentId: string, filename: string): Promise<void> {
     const config = apiConfig.getConfig();
     const response = await api.get(config.endpoints.gmail.attachment(messageId, attachmentId), {
