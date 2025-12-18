@@ -10,6 +10,7 @@ import {
   batchDeleteEmailsAction,
   batchUpdateStatusAction
 } from '../store/slices/gmailSlice';
+import { gmailService } from '../services/gmailService';
 import toast from 'react-hot-toast';
 import React from 'react';
 
@@ -82,6 +83,18 @@ export const useEmailActions = () => {
     }
   }, [dispatch]);
 
+  const handleSnoozeEmail = useCallback(async (messageId: string, snoozedUntil: string, labelId: string) => {
+    try {
+      await gmailService.snoozeEmail(messageId, snoozedUntil);
+      toast.success('Email snoozed successfully');
+      // Refresh the current label to remove the snoozed email
+      dispatch(fetchMessages({ labelId }));
+    } catch (error) {
+      toast.error('Failed to snooze email');
+      console.error('Snooze error:', error);
+    }
+  }, [dispatch]);
+
   return {
     handleToggleRead,
     handleToggleStar,
@@ -89,6 +102,7 @@ export const useEmailActions = () => {
     handleRestoreEmail,
     refreshMessages,
     handleBulkDelete,
-    handleBulkMarkRead
+    handleBulkMarkRead,
+    handleSnoozeEmail
   };
 };

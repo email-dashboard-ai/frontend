@@ -8,7 +8,7 @@ export interface UserPublicProfile {
 
 export const userService = {
     getUsersByEmails: async (emails: string[]): Promise<UserPublicProfile[]> => {
-        const response = await api.post<UserPublicProfile[]>('/users/batch-info', emails);
-        return response.data;
+        const response = await api.post('/api/users/batch-info', emails);
+        return response.data.data;
     }
 };

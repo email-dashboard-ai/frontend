@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { fetchUserProfiles } from '../../store/slices/gmailSlice';
-import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare } from 'lucide-react';
+import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare, Clock, BellOff } from 'lucide-react';
+import EmailContextMenu from './EmailContextMenu';
+import SnoozeDatePicker from './SnoozeDatePicker';
 import UserAvatar from '../common/UserAvatar';
 
 interface EmailListProps {
@@ -27,6 +29,9 @@ interface EmailListProps {
   onPrevPage: () => void;
   hasNextPage: boolean;
   hasPrevPage: boolean;
+  onSnooze: (emailId: string, snoozedUntil: string) => void;
+  snoozedInfo?: Record<string, string>;
+  onUnsnooze?: (emailId: string) => void;
 }
 
 const EmailList: React.FC<EmailListProps> = ({
@@ -50,11 +55,38 @@ const EmailList: React.FC<EmailListProps> = ({
   onNextPage,
   onPrevPage,
   hasNextPage,
-  hasPrevPage
+  hasPrevPage,
+  onSnooze,
+  snoozedInfo,
+  onUnsnooze
 }) => {
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; emailId: string } | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedEmailForSnooze, setSelectedEmailForSnooze] = useState<string | null>(null);
   const dispatch = useAppDispatch();
   const { knownUsers } = useAppSelector(state => state.gmail);
   const isInTrash = selectedLabel?.id === 'TRASH';
+  const isInSnoozed = selectedLabel?.name === 'SNOOZED';
+
+  const formatSnoozeUntil = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+
+    const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    if (date < tomorrow) {
+      return `Today ${timeStr}`;
+    } else if (date < dayAfterTomorrow) {
+      return `Tomorrow ${timeStr}`;
+    } else {
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) + ` ${timeStr}`;
+    }
+  };
 
   React.useEffect(() => {
     if (messages.length > 0) {
@@ -97,6 +129,15 @@ const EmailList: React.FC<EmailListProps> = ({
     msg.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
     msg.snippet.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Sort snoozed emails by snoozeUntil time (earliest first)
+  const sortedMessages = isInSnoozed && snoozedInfo
+    ? [...filteredMessages].sort((a, b) => {
+      const aTime = snoozedInfo[a.id] ? new Date(snoozedInfo[a.id]).getTime() : Infinity;
+      const bTime = snoozedInfo[b.id] ? new Date(snoozedInfo[b.id]).getTime() : Infinity;
+      return aTime - bTime;
+    })
+    : filteredMessages;
 
   // Determine bulk action state based on the first selected item
   const firstSelectedMessage = filteredMessages.find(msg => selectedIds.has(msg.id));
@@ -183,10 +224,15 @@ const EmailList: React.FC<EmailListProps> = ({
           </div>
         ) : (
           <>
-            {filteredMessages?.map(message => (
+            {sortedMessages?.map(message => (
               <div
                 key={message.id}
-                className={`border-b border-gray-100 p-4 transition-colors duration-200 group ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({ x: e.clientX, y: e.clientY, emailId: message.id });
+                }}
+                onClick={() => onMessageClick(message)}
+                className={`border-b border-gray-100 p-4 transition-colors duration-200 group cursor-pointer ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
                   } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'} ${selectedIds.has(message.id) ? 'bg-blue-50/50' : ''}`}
               >
                 <div className="flex items-start justify-between mb-1">
@@ -260,6 +306,31 @@ const EmailList: React.FC<EmailListProps> = ({
 
                 <p className="text-xs text-gray-500 truncate line-clamp-1">{message.snippet}</p>
 
+                {/* Snooze Info for SNOOZED label */}
+                {isInSnoozed && snoozedInfo && snoozedInfo[message.id] && (
+                  <div className="flex items-center justify-between mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Clock size={14} className="text-amber-600" />
+                      <span className="text-xs text-amber-700">
+                        Snoozed until <b>{formatSnoozeUntil(snoozedInfo[message.id])}</b>
+                      </span>
+                    </div>
+                    {onUnsnooze && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUnsnooze(message.id);
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-amber-700 hover:text-amber-900 hover:bg-amber-100 rounded transition-colors"
+                        title="Unsnooze now"
+                      >
+                        <BellOff size={12} />
+                        Unsnooze
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {message.attachments.length > 0 && (
                   <div className="flex items-center gap-1 mt-2">
                     <Paperclip size={12} className="text-gray-400" />
@@ -295,6 +366,68 @@ const EmailList: React.FC<EmailListProps> = ({
           </>
         )}
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <EmailContextMenu
+          position={{ x: contextMenu.x, y: contextMenu.y }}
+          onClose={() => setContextMenu(null)}
+          onSnooze={(option) => {
+            setSelectedEmailForSnooze(contextMenu.emailId);
+            if (option === 'custom') {
+              setShowDatePicker(true);
+            } else {
+              // Calculate snooze time based on preset
+              const now = new Date();
+              let snoozeDate: Date;
+
+              switch (option) {
+                case 'later-today':
+                  snoozeDate = new Date(now);
+                  snoozeDate.setHours(18, 0, 0, 0);
+                  if (snoozeDate <= now) snoozeDate.setDate(snoozeDate.getDate() + 1);
+                  break;
+                case 'tomorrow':
+                  snoozeDate = new Date(now);
+                  snoozeDate.setDate(snoozeDate.getDate() + 1);
+                  snoozeDate.setHours(9, 0, 0, 0);
+                  break;
+                case 'weekend':
+                  snoozeDate = new Date(now);
+                  const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
+                  snoozeDate.setDate(snoozeDate.getDate() + daysUntilSaturday);
+                  snoozeDate.setHours(9, 0, 0, 0);
+                  break;
+                case 'next-week':
+                  snoozeDate = new Date(now);
+                  const daysUntilMonday = (1 - now.getDay() + 7) % 7 || 7;
+                  snoozeDate.setDate(snoozeDate.getDate() + daysUntilMonday);
+                  snoozeDate.setHours(9, 0, 0, 0);
+                  break;
+                default:
+                  return;
+              }
+
+              onSnooze(contextMenu.emailId, snoozeDate.toISOString());
+            }
+          }}
+        />
+      )}
+
+      {/* Date Picker Modal */}
+      {showDatePicker && selectedEmailForSnooze && (
+        <SnoozeDatePicker
+          onConfirm={(dateTime) => {
+            onSnooze(selectedEmailForSnooze, dateTime);
+            setShowDatePicker(false);
+            setSelectedEmailForSnooze(null);
+          }}
+          onClose={() => {
+            setShowDatePicker(false);
+            setSelectedEmailForSnooze(null);
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 import { GmailLabel } from '../../types/gmail';
-import { Inbox, Star, Send, FileText, Trash2, Folder, Loader2, Edit2 } from 'lucide-react';
+import { Inbox, Star, Send, FileText, Trash2, Folder, Loader2, Edit2, Clock } from 'lucide-react';
 
 interface EmailSidebarProps {
   sidebarWidth: number;
@@ -23,33 +23,39 @@ const EmailSidebar: React.FC<EmailSidebarProps> = ({
   sidebarRef,
   onCompose
 }) => {
-  const getLabelIcon = (labelId: string) => {
-    const icons: Record<string, React.ReactNode> = {
+  const getLabelIcon = (label: GmailLabel) => {
+    const iconsByName: Record<string, React.ReactNode> = {
+      'SNOOZED': <Clock size={18} />,
+    };
+    const iconsById: Record<string, React.ReactNode> = {
       'INBOX': <Inbox size={18} />,
       'STARRED': <Star size={18} />,
       'SENT': <Send size={18} />,
       'DRAFT': <FileText size={18} />,
       'TRASH': <Trash2 size={18} />,
     };
-    return icons[labelId] || <Folder size={18} />;
+    return iconsByName[label.name] || iconsById[label.id] || <Folder size={18} />;
   };
 
-  const getLabelPriority = (labelId: string) => {
+  const getLabelPriority = (label: GmailLabel) => {
+    // Check by name first for user-created labels like SNOOZED
+    if (label.name === 'SNOOZED') return 3;
+
     const priorities: Record<string, number> = {
       'INBOX': 1,
       'STARRED': 2,
-      'IMPORTANT': 3,
-      'SENT': 4,
-      'DRAFT': 5,
-      'TRASH': 6,
-      'SPAM': 7,
+      'IMPORTANT': 4,
+      'SENT': 5,
+      'DRAFT': 6,
+      'TRASH': 7,
+      'SPAM': 8,
     };
-    return priorities[labelId] || 100;
+    return priorities[label.id] || 100;
   };
 
   const visibleLabels = labels
     .filter(l => !l.id.startsWith('CATEGORY_') && !['CHAT', 'YELLOW_STAR', 'UNREAD'].includes(l.id))
-    .sort((a, b) => getLabelPriority(a.id) - getLabelPriority(b.id));
+    .sort((a, b) => getLabelPriority(a) - getLabelPriority(b));
 
   return (
     <aside
@@ -82,7 +88,7 @@ const EmailSidebar: React.FC<EmailSidebarProps> = ({
                 }`}
             >
               <div className="flex items-center gap-3">
-                {getLabelIcon(label.id)}
+                {getLabelIcon(label)}
                 <span className="text-sm truncate">{label.name}</span>
               </div>
               {label.messagesUnread ? (

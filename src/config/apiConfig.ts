@@ -26,12 +26,20 @@ export interface ApiConfig {
       toggleStar: (id: string) => string;
       delete: (id: string) => string;
       untrash: (id: string) => string;
+      archive: (id: string) => string;
       batchDelete: string;
       batchStatus: string;
       attachment: (messageId: string, attachmentId: string) => string;
       send: string;
       reply: (id: string) => string;
+      snooze: (id: string) => string;
+      unsnooze: (id: string) => string;
+      snoozedInfo: string;
       thread: (id: string) => string;
+    };
+    kanban: {
+      statuses: string;
+      update: string;
     };
   };
   headers: Record<string, string>;
@@ -67,12 +75,20 @@ class ApiConfigManager {
           toggleStar: (id: string) => `/api/gmail/${id}/star`,
           delete: (id: string) => `/api/gmail/${id}`,
           untrash: (id: string) => `/api/gmail/${id}/untrash`,
+          archive: (id: string) => `/api/gmail/${id}/archive`,
           batchDelete: "/api/gmail/batch/delete",
           batchStatus: "/api/gmail/batch/status",
           attachment: (messageId: string, attachmentId: string) => `/api/gmail/${messageId}/attachments/${attachmentId}`,
           send: "/api/gmail/send",
           reply: (id: string) => `/api/gmail/${id}/reply`,
+          snooze: (id: string) => `/api/gmail/${id}/snooze`,
+          unsnooze: (id: string) => `/api/gmail/${id}/unsnooze`,
+          snoozedInfo: "/api/gmail/snoozed-info",
           thread: (id: string) => `/api/gmail/thread/${id}`,
+        },
+        kanban: {
+          statuses: "/api/kanban/statuses",
+          update: "/api/kanban/status",
         },
       },
       headers: {
