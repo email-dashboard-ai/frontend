@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { ParsedEmail } from '../../types/gmail';
-import { Star, Clock, ExternalLink, GripVertical, Sparkles, CheckCircle2, Inbox as InboxIcon, Loader2, X, Sun, Calendar, ArrowRight } from 'lucide-react';
+import { Star, Clock, ExternalLink, GripVertical, Sparkles, CheckCircle2, Inbox as InboxIcon, Loader2, X, Sun, Calendar, ArrowRight, ArrowUpDown, SlidersHorizontal, Mail, Paperclip } from 'lucide-react';
 import UserAvatar from '../common/UserAvatar';
 import { aiService } from '../../services/aiService';
 import SnoozeDatePicker from './SnoozeDatePicker';
@@ -494,6 +494,11 @@ const KanbanView: React.FC<KanbanViewProps> = ({ messages, kanbanStatuses, onMes
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customSnoozeEmail, setCustomSnoozeEmail] = useState<ParsedEmail | null>(null);
 
+  // Filter & Sort state
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [filterUnread, setFilterUnread] = useState(false);
+  const [filterAttachments, setFilterAttachments] = useState(false);
+
   const handleShowSummaryModal = useCallback((email: ParsedEmail) => {
     setModalEmail(email);
   }, []);
@@ -544,19 +549,49 @@ const KanbanView: React.FC<KanbanViewProps> = ({ messages, kanbanStatuses, onMes
     }
   }, [messages, summariesById, loadingIds, failedIds, buildCardContent]);
 
+  // Apply filters and sorting to emails
+  const applyFiltersAndSort = useCallback((emails: ParsedEmail[]) => {
+    let filtered = [...emails];
+
+    // Apply filters
+    if (filterUnread) {
+      filtered = filtered.filter(e => !e.isRead);
+    }
+    if (filterAttachments) {
+      filtered = filtered.filter(e => e.attachments && e.attachments.length > 0);
+    }
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+
+    return filtered;
+  }, [filterUnread, filterAttachments, sortOrder]);
+
   // Filter messages based on Backend Status
-  const inboxEmails = messages.filter(e => {
+  const rawInboxEmails = messages.filter(e => {
     const status = kanbanStatuses[e.id];
     return !status || status === 'INBOX';
   });
 
-  const importantEmails = messages.filter(e =>
+  const rawImportantEmails = messages.filter(e =>
     kanbanStatuses[e.id] === 'IN_PROGRESS'
   );
 
-  const doneEmails = messages.filter(e =>
+  const rawDoneEmails = messages.filter(e =>
     kanbanStatuses[e.id] === 'DONE'
   );
+
+  // Apply filters and sorting to each column
+  const inboxEmails = applyFiltersAndSort(rawInboxEmails);
+  const importantEmails = applyFiltersAndSort(rawImportantEmails);
+  const doneEmails = applyFiltersAndSort(rawDoneEmails);
+
+  // Check if any filter is active
+  const hasActiveFilter = filterUnread || filterAttachments;
 
   const handleSnooze = useCallback((email: ParsedEmail) => {
     setSnoozeDropdownEmail(email);
@@ -599,6 +634,92 @@ const KanbanView: React.FC<KanbanViewProps> = ({ messages, kanbanStatuses, onMes
 
   return (
     <div className="h-full flex flex-col bg-white">
+      {/* Filter & Sort Toolbar */}
+      <div className="flex-shrink-0 px-6 pt-4 pb-2 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          {/* Sort Controls */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              <ArrowUpDown size={16} />
+              Sort:
+            </span>
+            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+              <button
+                onClick={() => setSortOrder('newest')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${sortOrder === 'newest'
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+              >
+                Newest First
+              </button>
+              <button
+                onClick={() => setSortOrder('oldest')}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors ${sortOrder === 'oldest'
+                    ? 'bg-slate-800 text-white'
+                    : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+              >
+                Oldest First
+              </button>
+            </div>
+          </div>
+
+          {/* Filter Controls */}
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
+              <SlidersHorizontal size={16} />
+              Filter:
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setFilterUnread(!filterUnread)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${filterUnread
+                    ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                <Mail size={14} />
+                Unread
+                {filterUnread && <X size={12} className="ml-1" />}
+              </button>
+              <button
+                onClick={() => setFilterAttachments(!filterAttachments)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${filterAttachments
+                    ? 'bg-green-50 border-green-300 text-green-700 shadow-sm'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                <Paperclip size={14} />
+                Attachments
+                {filterAttachments && <X size={12} className="ml-1" />}
+              </button>
+            </div>
+
+            {/* Clear All Filters */}
+            {hasActiveFilter && (
+              <button
+                onClick={() => {
+                  setFilterUnread(false);
+                  setFilterAttachments(false);
+                }}
+                className="text-sm text-red-600 hover:text-red-700 font-medium underline underline-offset-2"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Active filters summary */}
+        {hasActiveFilter && (
+          <div className="mt-2 text-xs text-slate-500">
+            Showing: {filterUnread && 'Unread emails'}{filterUnread && filterAttachments && ' with '}{filterAttachments && 'Attachments'}
+            {' '}• {inboxEmails.length + importantEmails.length + doneEmails.length} results
+          </div>
+        )}
+      </div>
+
       <div className="flex-1 overflow-hidden p-6">
         <div className="h-full grid grid-cols-1 md:grid-cols-3 gap-6 min-w-[900px] md:min-w-0">
           <KanbanColumn
