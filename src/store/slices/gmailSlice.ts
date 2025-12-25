@@ -42,7 +42,7 @@ export const fetchLabels = createAsyncThunk(
 
 export const fetchMessages = createAsyncThunk(
   'gmail/fetchMessages',
-  async ({ labelId, pageToken, limit = appConfig.gmail.defaultPageLimit }: { labelId: string; pageToken?: string; limit?: number }, { rejectWithValue, signal }) => {
+  async ({ labelId, pageToken, limit = appConfig.gmail.defaultPageLimit, append = false }: { labelId: string; pageToken?: string; limit?: number; append?: boolean }, { rejectWithValue, signal }) => {
     try {
       return await gmailService.getMessages(labelId, pageToken, limit, signal);
     } catch (error: any) {
@@ -209,7 +209,17 @@ const gmailSlice = createSlice({
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.messages = action.payload.messages;
+        // Use the explicit 'append' flag from arguments
+        if (action.meta.arg.append && action.payload.messages.length > 0) {
+          // Append mode: Filter duplicates to be safe
+          const newMessages = action.payload.messages.filter(
+            (newMsg: ParsedEmail) => !state.messages.some(existing => existing.id === newMsg.id)
+          );
+          state.messages = [...state.messages, ...newMessages];
+        } else {
+          // Replace mode (Initial load or Pagination)
+          state.messages = action.payload.messages;
+        }
         state.nextPageToken = action.payload.nextPageToken;
       })
       .addCase(fetchMessages.rejected, (state, action) => {

@@ -159,6 +159,17 @@ const EmailDashboard: React.FC = () => {
     }
   };
 
+  const handleLoadMore = () => {
+    if (!isLoading && nextPageToken && selectedLabel) {
+      console.log('Loading more messages...', nextPageToken);
+      dispatch(fetchMessages({
+        labelId: selectedLabel.id,
+        pageToken: nextPageToken,
+        append: true
+      }));
+    }
+  };
+
   const handleLabelClick = (label: GmailLabel) => {
     dispatch(setSelectedLabel(label));
     setIsMobileDetailView(false);
@@ -384,6 +395,7 @@ const EmailDashboard: React.FC = () => {
                   onMessageClick={handleMessageClick}
                   onToggleStar={handleToggleStar}
                   onUpdateStatus={handleKanbanUpdateStatus}
+                  onLoadMore={handleLoadMore}
                   onSnooze={(emailId, snoozedUntil) => {
                     if (selectedLabel) {
                       handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
