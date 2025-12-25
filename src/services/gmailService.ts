@@ -1,5 +1,5 @@
 import { api, apiConfig } from '../config/apiConfig';
-import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse } from '../types/gmail';
+import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse, SearchResult, SearchRequest } from '../types/gmail';
 import type { ApiResponse } from '../types/api';
 import { appConfig } from '../config/appConfig';
 
@@ -192,6 +192,11 @@ class GmailService {
     });
   }
 
+  async archiveEmail(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.archive(messageId));
+  }
+
   async downloadAttachment(messageId: string, attachmentId: string, filename: string): Promise<void> {
     const config = apiConfig.getConfig();
     const response = await api.get(config.endpoints.gmail.attachment(messageId, attachmentId), {
@@ -278,6 +283,52 @@ class GmailService {
         'Content-Type': 'multipart/form-data',
       },
     });
+  }
+
+  async snoozeEmail(messageId: string, snoozedUntil: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.snooze(messageId), {
+      snoozedUntil,
+    });
+  }
+
+  async getKanbanStatuses(signal?: AbortSignal): Promise<Record<string, string>> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.get<ApiResponse<Record<string, string>>>(config.endpoints.kanban.statuses, { signal });
+    return data.data;
+  }
+
+  async updateKanbanStatus(emailId: string, status: 'inbox' | 'important' | 'done'): Promise<void> {
+    const config = apiConfig.getConfig();
+    let backendStatus = 'INBOX';
+    if (status === 'important') backendStatus = 'IN_PROGRESS';
+    else if (status === 'done') backendStatus = 'DONE';
+
+    await api.post(config.endpoints.kanban.update, null, {
+      params: { emailId, status: backendStatus }
+    });
+  }
+
+  async unsnoozeEmail(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.post(config.endpoints.gmail.unsnooze(messageId));
+  }
+
+  async getSnoozedEmailsInfo(signal?: AbortSignal): Promise<Record<string, string>> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.get<ApiResponse<Record<string, string>>>(config.endpoints.gmail.snoozedInfo, { signal });
+    return data.data;
+  }
+
+  // Search: Gmail fields → GMAIL_API | body → INTERNAL | both → HYBRID
+  async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResult[]> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.post<ApiResponse<SearchResult[]>>(
+      config.endpoints.gmail.search,
+      request,
+      { signal }
+    );
+    return data.data;
   }
 }
 

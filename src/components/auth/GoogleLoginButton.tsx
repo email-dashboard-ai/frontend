@@ -24,6 +24,11 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
 
     // 2. Request the same scopes you set in Google Cloud Console
     scope: "https://www.googleapis.com/auth/gmail.modify",
+    
+    // 3. Force account selection to trigger consent screen
+    // This helps ensure we get a refresh token
+    hint: "",
+    select_account: true,
 
     onSuccess: async (codeResponse) => {
       console.log("Received Auth Code from Google:", codeResponse.code);

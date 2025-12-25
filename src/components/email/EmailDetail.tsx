@@ -1,7 +1,8 @@
 import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { gmailService } from '../../services/gmailService';
-import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download } from 'lucide-react';
+import { aiService } from '../../services/aiService';
+import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles } from 'lucide-react';
 import ReplyComposer from './ReplyComposer';
 
 import { useAppDispatch, useAppSelector } from '../../store';
@@ -18,6 +19,7 @@ interface EmailDetailProps {
   onToggleRead: (id: string, isRead: boolean) => void;
   onDelete: (id: string) => void;
   onRestore: (id: string) => void;
+  onBack?: () => void; // Optional custom back handler
 }
 
 const EmailDetail: React.FC<EmailDetailProps> = ({
@@ -29,13 +31,50 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   onToggleStar,
   onToggleRead,
   onDelete,
-  onRestore
+  onRestore,
+  onBack
 }) => {
   const dispatch = useAppDispatch();
   const { knownUsers } = useAppSelector(state => state.gmail);
   const isInTrash = selectedLabel?.id === 'TRASH';
   const [showReply, setShowReply] = React.useState(false);
   const [replyAll, setReplyAll] = React.useState(false);
+
+  // AI Summary state
+  const [aiSummary, setAiSummary] = React.useState<string | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = React.useState(false);
+
+  // Fetch AI summary when message changes
+  React.useEffect(() => {
+    if (!selectedMessage) {
+      setAiSummary(null);
+      return;
+    }
+
+    const fetchSummary = async () => {
+      setIsLoadingSummary(true);
+      try {
+        const content = [
+          selectedMessage.subject ? `Subject: ${selectedMessage.subject}` : '',
+          selectedMessage.from ? `From: ${selectedMessage.from}` : '',
+          selectedMessage.snippet ? `Snippet: ${selectedMessage.snippet}` : '',
+        ].filter(Boolean).join('\n');
+
+        const res = await aiService.summarizeEmail({
+          messageId: selectedMessage.id,
+          content,
+        });
+        setAiSummary(res.summary);
+      } catch (err) {
+        console.error('Failed to fetch AI summary:', err);
+        setAiSummary(null);
+      } finally {
+        setIsLoadingSummary(false);
+      }
+    };
+
+    fetchSummary();
+  }, [selectedMessage?.id]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -57,6 +96,18 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
     const match = emailString.match(/<(.+)>/);
     return match ? match[1] : emailString;
   };
+
+  // Make all links in email body open in new tab
+  const emailBodyRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (emailBodyRef.current) {
+      const links = emailBodyRef.current.querySelectorAll('a');
+      links.forEach(link => {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener noreferrer');
+      });
+    }
+  }, [selectedMessage?.id, selectedMessage?.body]);
 
   const [downloadingAttachments, setDownloadingAttachments] = React.useState<Set<string>>(new Set());
 
@@ -138,8 +189,11 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
 
   return (
     <div className={`flex-1 bg-white flex flex-col min-w-0 ${!isMobileDetailView ? 'hidden md:flex' : 'flex'}`}>
-      <div className="md:hidden border-b border-gray-200 p-4">
-        <button onClick={() => setIsMobileDetailView(false)} className="flex items-center gap-2 text-gray-600">
+      <div className={`border-b border-gray-200 p-4 ${onBack ? 'block' : 'md:hidden'}`}>
+        <button
+          onClick={() => onBack ? onBack() : setIsMobileDetailView(false)}
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
           <ChevronLeft size={20} />
           <span>Back</span>
         </button>
@@ -157,6 +211,23 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
               <Star size={20} className={selectedMessage.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
             </button>
           </div>
+        </div>
+
+        {/* AI Summary Section */}
+        <div className="mb-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-100">
+          <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700 mb-2">
+            {isLoadingSummary ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Sparkles size={16} />
+            )}
+            AI Summary
+          </div>
+          <p className="text-sm text-gray-700 leading-relaxed">
+            {isLoadingSummary
+              ? 'Generating summary...'
+              : (aiSummary || selectedMessage.snippet || 'No summary available')}
+          </p>
         </div>
 
         {/* Thread Participants Summary (Optional, using first message for now) */}
@@ -222,7 +293,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
               </div>
 
               {/* Message Body */}
-              <div className="p-6">
+              <div className="p-6" ref={emailBodyRef}>
                 <div
                   className="prose prose-sm max-w-none text-gray-800 font-sans"
                   dangerouslySetInnerHTML={{ __html: msg.body }}
