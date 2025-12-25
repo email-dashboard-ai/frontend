@@ -108,7 +108,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
     // Check if scrolled near bottom (within 50px)
     const bottom = element.scrollHeight - element.scrollTop - element.clientHeight < 50;
 
-    if (bottom && onLoadMore) {
+    if (bottom && onLoadMore && columnId === 'inbox') {
       onLoadMore();
     }
   }, [onLoadMore]);
