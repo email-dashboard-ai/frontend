@@ -414,6 +414,49 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 }) => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
+  // Column-specific sort/filter state
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [filterUnread, setFilterUnread] = useState(false);
+  const [filterAttachments, setFilterAttachments] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Apply filters and sorting
+  const filteredAndSortedEmails = React.useMemo(() => {
+    let result = [...emails];
+
+    // Apply filters
+    if (filterUnread) {
+      result = result.filter(e => !e.isRead);
+    }
+    if (filterAttachments) {
+      result = result.filter(e => e.attachments && e.attachments.length > 0);
+    }
+
+    // Apply sorting
+    result.sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+
+    return result;
+  }, [emails, filterUnread, filterAttachments, sortOrder]);
+
+  const hasActiveFilter = filterUnread || filterAttachments;
+  const activeFilterCount = (filterUnread ? 1 : 0) + (filterAttachments ? 1 : 0);
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDraggingOver(true);
@@ -439,24 +482,108 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   return (
     <div
-      className={`flex flex-col h-full overflow-hidden min-w-[300px] md:min-w-0 rounded-md border transition-colors duration-200 ${isDraggingOver ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-100' : 'bg-slate-50/50 border-slate-100'}`}
+      className={`flex flex-col h-full w-full rounded-md border transition-colors duration-200 ${isDraggingOver ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-100' : 'bg-slate-50/50 border-slate-100'}`}
+      style={{ zIndex: showDropdown ? 50 : 0, position: 'relative' }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="p-4 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-sm flex-shrink-0 rounded-t-md">
+      {/* Column Header */}
+      <div className="p-3 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-sm flex-shrink-0 rounded-t-md relative z-20">
         <div className="flex items-center gap-2">
           <Icon size={18} className="text-slate-600" />
           <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wide">{title}</h2>
-          <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full">{count}</span>
+          <span className="bg-slate-200 text-slate-700 text-xs font-bold px-2 py-0.5 rounded-full">
+            {hasActiveFilter ? `${filteredAndSortedEmails.length}/${count}` : count}
+          </span>
+        </div>
+
+        {/* Sort/Filter Dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setShowDropdown(!showDropdown)}
+            className={`p-1.5 rounded-md transition-colors ${hasActiveFilter || sortOrder !== 'newest'
+              ? 'bg-indigo-100 text-indigo-700'
+              : 'hover:bg-slate-100 text-slate-500'
+              }`}
+            title="Sort & Filter"
+          >
+            <SlidersHorizontal size={14} />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-indigo-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {showDropdown && (
+            <div className="absolute top-full right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+              {/* Sort Section */}
+              <div className="p-2 border-b border-slate-100">
+                <div className="text-xs font-semibold text-slate-500 uppercase mb-2 px-2">Sort by</div>
+                <button
+                  onClick={() => setSortOrder('newest')}
+                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${sortOrder === 'newest' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  Newest first
+                </button>
+                <button
+                  onClick={() => setSortOrder('oldest')}
+                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${sortOrder === 'oldest' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  Oldest first
+                </button>
+              </div>
+
+              {/* Filter Section */}
+              <div className="p-2">
+                <div className="flex items-center justify-between px-2 mb-2">
+                  <span className="text-xs font-semibold text-slate-500 uppercase">Filter</span>
+                  {hasActiveFilter && (
+                    <button
+                      onClick={() => {
+                        setFilterUnread(false);
+                        setFilterAttachments(false);
+                      }}
+                      className="text-xs text-red-600 hover:text-red-700"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <label className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filterUnread}
+                    onChange={(e) => setFilterUnread(e.target.checked)}
+                    className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded"
+                  />
+                  <Mail size={14} className="text-slate-500" />
+                  <span className="text-sm text-slate-700">Unread</span>
+                </label>
+                <label className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filterAttachments}
+                    onChange={(e) => setFilterAttachments(e.target.checked)}
+                    className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded"
+                  />
+                  <Paperclip size={14} className="text-slate-500" />
+                  <span className="text-sm text-slate-700">Attachments</span>
+                </label>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
       <div
-        className="p-3 flex-1 overflow-y-auto min-h-0 kanban-column-scroll"
+        className="p-3 flex-1 overflow-y-auto overflow-x-hidden min-h-0 kanban-column-scroll rounded-b-md"
         onScroll={onScroll ? (e) => onScroll(e, id) : undefined}
       >
-        {emails.map((email) => (
+        {filteredAndSortedEmails.map((email) => (
           <EmailCard
             key={email.id}
             email={email}
@@ -470,9 +597,9 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             onShowSummaryModal={onShowSummaryModal}
           />
         ))}
-        {emails.length === 0 && (
-          <div className={`h-32 flex flex-col items-center justify-center text-slate-400 text-xs border-2 border-dashed rounded-md transition-colors ${isDraggingOver ? 'border-indigo-300 text-indigo-400 bg-indigo-50' : 'border-slate-200'}`}>
-            <span>{isDraggingOver ? 'Drop here' : 'No items'}</span>
+        {filteredAndSortedEmails.length === 0 && (
+          <div className={`min-h-[200px] h-full flex flex-col items-center justify-center text-slate-400 text-xs border-2 border-dashed rounded-md transition-colors ${isDraggingOver ? 'border-indigo-300 text-indigo-400 bg-indigo-50' : 'border-slate-200'}`}>
+            <span>{isDraggingOver ? 'Drop here' : hasActiveFilter ? 'No matching items' : 'No items'}</span>
           </div>
         )}
       </div>
@@ -493,11 +620,6 @@ const KanbanView: React.FC<KanbanViewProps> = ({ messages, kanbanStatuses, onMes
   const [snoozeDropdownEmail, setSnoozeDropdownEmail] = useState<ParsedEmail | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [customSnoozeEmail, setCustomSnoozeEmail] = useState<ParsedEmail | null>(null);
-
-  // Filter & Sort state
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
-  const [filterUnread, setFilterUnread] = useState(false);
-  const [filterAttachments, setFilterAttachments] = useState(false);
 
   const handleShowSummaryModal = useCallback((email: ParsedEmail) => {
     setModalEmail(email);
@@ -549,49 +671,19 @@ const KanbanView: React.FC<KanbanViewProps> = ({ messages, kanbanStatuses, onMes
     }
   }, [messages, summariesById, loadingIds, failedIds, buildCardContent]);
 
-  // Apply filters and sorting to emails
-  const applyFiltersAndSort = useCallback((emails: ParsedEmail[]) => {
-    let filtered = [...emails];
-
-    // Apply filters
-    if (filterUnread) {
-      filtered = filtered.filter(e => !e.isRead);
-    }
-    if (filterAttachments) {
-      filtered = filtered.filter(e => e.attachments && e.attachments.length > 0);
-    }
-
-    // Apply sorting
-    filtered.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
-    });
-
-    return filtered;
-  }, [filterUnread, filterAttachments, sortOrder]);
-
-  // Filter messages based on Backend Status
-  const rawInboxEmails = messages.filter(e => {
+  // Filter messages based on Backend Status (sorting/filtering now handled per-column)
+  const inboxEmails = messages.filter(e => {
     const status = kanbanStatuses[e.id];
     return !status || status === 'INBOX';
   });
 
-  const rawImportantEmails = messages.filter(e =>
+  const importantEmails = messages.filter(e =>
     kanbanStatuses[e.id] === 'IN_PROGRESS'
   );
 
-  const rawDoneEmails = messages.filter(e =>
+  const doneEmails = messages.filter(e =>
     kanbanStatuses[e.id] === 'DONE'
   );
-
-  // Apply filters and sorting to each column
-  const inboxEmails = applyFiltersAndSort(rawInboxEmails);
-  const importantEmails = applyFiltersAndSort(rawImportantEmails);
-  const doneEmails = applyFiltersAndSort(rawDoneEmails);
-
-  // Check if any filter is active
-  const hasActiveFilter = filterUnread || filterAttachments;
 
   const handleSnooze = useCallback((email: ParsedEmail) => {
     setSnoozeDropdownEmail(email);
@@ -634,94 +726,10 @@ const KanbanView: React.FC<KanbanViewProps> = ({ messages, kanbanStatuses, onMes
 
   return (
     <div className="h-full flex flex-col bg-white">
-      {/* Filter & Sort Toolbar */}
-      <div className="flex-shrink-0 px-6 pt-4 pb-2 border-b border-slate-100 bg-slate-50/50">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* Sort Controls */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-              <ArrowUpDown size={16} />
-              Sort:
-            </span>
-            <div className="flex items-center bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
-              <button
-                onClick={() => setSortOrder('newest')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${sortOrder === 'newest'
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-              >
-                Newest First
-              </button>
-              <button
-                onClick={() => setSortOrder('oldest')}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${sortOrder === 'oldest'
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-              >
-                Oldest First
-              </button>
-            </div>
-          </div>
 
-          {/* Filter Controls */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-600 flex items-center gap-1.5">
-              <SlidersHorizontal size={16} />
-              Filter:
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setFilterUnread(!filterUnread)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${filterUnread
-                    ? 'bg-blue-50 border-blue-300 text-blue-700 shadow-sm'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-              >
-                <Mail size={14} />
-                Unread
-                {filterUnread && <X size={12} className="ml-1" />}
-              </button>
-              <button
-                onClick={() => setFilterAttachments(!filterAttachments)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition-all ${filterAttachments
-                    ? 'bg-green-50 border-green-300 text-green-700 shadow-sm'
-                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-              >
-                <Paperclip size={14} />
-                Attachments
-                {filterAttachments && <X size={12} className="ml-1" />}
-              </button>
-            </div>
 
-            {/* Clear All Filters */}
-            {hasActiveFilter && (
-              <button
-                onClick={() => {
-                  setFilterUnread(false);
-                  setFilterAttachments(false);
-                }}
-                className="text-sm text-red-600 hover:text-red-700 font-medium underline underline-offset-2"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Active filters summary */}
-        {hasActiveFilter && (
-          <div className="mt-2 text-xs text-slate-500">
-            Showing: {filterUnread && 'Unread emails'}{filterUnread && filterAttachments && ' with '}{filterAttachments && 'Attachments'}
-            {' '}• {inboxEmails.length + importantEmails.length + doneEmails.length} results
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-hidden p-6">
-        <div className="h-full grid grid-cols-1 md:grid-cols-3 gap-6 min-w-[900px] md:min-w-0">
+      <div className="flex-1 p-6 w-full min-h-0">
+        <div className="h-full w-full grid gap-6" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <KanbanColumn
             id="inbox"
             title="Inbox"

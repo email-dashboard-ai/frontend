@@ -376,18 +376,20 @@ const EmailDashboard: React.FC = () => {
                 onBack={handleBackToKanban}
               />
             ) : (
-              <KanbanView
-                messages={messages}
-                kanbanStatuses={kanbanStatuses}
-                onMessageClick={handleMessageClick}
-                onToggleStar={handleToggleStar}
-                onUpdateStatus={handleKanbanUpdateStatus}
-                onSnooze={(emailId, snoozedUntil) => {
-                  if (selectedLabel) {
-                    handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
-                  }
-                }}
-              />
+              <div className="w-full h-full">
+                <KanbanView
+                  messages={messages}
+                  kanbanStatuses={kanbanStatuses}
+                  onMessageClick={handleMessageClick}
+                  onToggleStar={handleToggleStar}
+                  onUpdateStatus={handleKanbanUpdateStatus}
+                  onSnooze={(emailId, snoozedUntil) => {
+                    if (selectedLabel) {
+                      handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
+                    }
+                  }}
+                />
+              </div>
             )}
           </>
         )}
