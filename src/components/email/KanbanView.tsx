@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ParsedEmail } from '../../types/gmail';
 import { Star, Clock, ExternalLink, GripVertical, Sparkles, CheckCircle2, Inbox as InboxIcon, Loader2, X, Sun, Calendar, ArrowRight, ArrowUpDown, SlidersHorizontal, Mail, Paperclip } from 'lucide-react';
 import UserAvatar from '../common/UserAvatar';
@@ -432,6 +433,28 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Calculate dropdown position
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
+
+  useEffect(() => {
+    if (showDropdown && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 5,
+        left: rect.right - 208, // 208px is dropdown width (w-52)
+      });
+    }
+  }, [showDropdown]);
+
+  // Handle scroll to close dropdown
+  useEffect(() => {
+    const handleScroll = () => {
+      if (showDropdown) setShowDropdown(false);
+    };
+    window.addEventListener('scroll', handleScroll, true);
+    return () => window.removeEventListener('scroll', handleScroll, true);
+  }, [showDropdown]);
+
   // Apply filters and sorting
   const filteredAndSortedEmails = React.useMemo(() => {
     let result = [...emails];
@@ -482,14 +505,13 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   return (
     <div
-      className={`flex flex-col h-full w-full rounded-md border transition-colors duration-200 ${isDraggingOver ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-100' : 'bg-slate-50/50 border-slate-100'}`}
-      style={{ zIndex: showDropdown ? 50 : 0, position: 'relative' }}
+      className={`flex flex-col h-full w-full overflow-hidden rounded-md border transition-colors duration-200 ${isDraggingOver ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-100' : 'bg-slate-50/50 border-slate-100'}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Column Header */}
-      <div className="p-3 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-sm flex-shrink-0 rounded-t-md relative z-20">
+      <div className="p-3 flex items-center justify-between border-b border-slate-100 bg-white/50 backdrop-blur-sm flex-shrink-0 rounded-t-md">
         <div className="flex items-center gap-2">
           <Icon size={18} className="text-slate-600" />
           <h2 className="font-bold text-slate-800 text-sm uppercase tracking-wide">{title}</h2>
@@ -516,8 +538,12 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             )}
           </button>
 
-          {showDropdown && (
-            <div className="absolute top-full right-0 mt-1 w-52 bg-white rounded-lg shadow-lg border border-slate-200 z-50 overflow-hidden">
+          {showDropdown && createPortal(
+            <div
+              className="fixed bg-white rounded-lg shadow-xl border border-slate-200 z-[9999] overflow-hidden w-52"
+              style={{ top: dropdownPos.top, left: dropdownPos.left }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               {/* Sort Section */}
               <div className="p-2 border-b border-slate-100">
                 <div className="text-xs font-semibold text-slate-500 uppercase mb-2 px-2">Sort by</div>
@@ -574,7 +600,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                   <span className="text-sm text-slate-700">Attachments</span>
                 </label>
               </div>
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       </div>
@@ -728,7 +755,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({ messages, kanbanStatuses, onMes
     <div className="h-full flex flex-col bg-white">
 
 
-      <div className="flex-1 p-6 w-full min-h-0">
+      <div className="flex-1 overflow-hidden p-6 w-full">
         <div className="h-full w-full grid gap-6" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
           <KanbanColumn
             id="inbox"
