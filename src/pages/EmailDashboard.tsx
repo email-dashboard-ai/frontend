@@ -379,6 +379,7 @@ const EmailDashboard: React.FC = () => {
               <div className="w-full h-full">
                 <KanbanView
                   messages={messages}
+                  labels={labels}
                   kanbanStatuses={kanbanStatuses}
                   onMessageClick={handleMessageClick}
                   onToggleStar={handleToggleStar}

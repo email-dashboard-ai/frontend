@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { ParsedEmail } from '../../types/gmail';
+import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { Star, CheckCircle2, Inbox as InboxIcon } from 'lucide-react';
 import { aiService } from '../../services/aiService';
 import SnoozeDatePicker from './SnoozeDatePicker';
@@ -9,6 +9,7 @@ import KanbanColumn from './kanban/KanbanColumn';
 
 interface KanbanViewProps {
   messages: ParsedEmail[];
+  labels: GmailLabel[];
   kanbanStatuses: Record<string, string>;
   onMessageClick: (message: ParsedEmail) => void;
   onToggleStar: (id: string, isStarred: boolean) => void;
@@ -18,6 +19,7 @@ interface KanbanViewProps {
 
 const KanbanView: React.FC<KanbanViewProps> = ({
   messages,
+  labels,
   kanbanStatuses,
   onMessageClick,
   onToggleStar: _onToggleStar,
@@ -131,6 +133,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
             count={inboxEmails.length}
             icon={InboxIcon}
             emails={inboxEmails}
+            labels={labels}
             summariesById={summariesById}
             loadingIds={loadingIds}
             onSnooze={handleSnoozeRequest}
@@ -146,6 +149,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
             count={importantEmails.length}
             icon={Star}
             emails={importantEmails}
+            labels={labels}
             summariesById={summariesById}
             loadingIds={loadingIds}
             onSnooze={handleSnoozeRequest}
@@ -161,6 +165,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
             count={doneEmails.length}
             icon={CheckCircle2}
             emails={doneEmails}
+            labels={labels}
             summariesById={summariesById}
             loadingIds={loadingIds}
             onSnooze={handleSnoozeRequest}

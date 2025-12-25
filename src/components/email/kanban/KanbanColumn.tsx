@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ParsedEmail } from '../../../types/gmail';
-import { SlidersHorizontal, Mail, Paperclip } from 'lucide-react';
+import { ParsedEmail, GmailLabel } from '../../../types/gmail';
+import { SlidersHorizontal, Mail, Paperclip, Sparkles, Tag, Check, X } from 'lucide-react';
 import KanbanCard from './KanbanCard';
 
 interface KanbanColumnProps {
@@ -10,6 +10,7 @@ interface KanbanColumnProps {
   count: number;
   icon: React.ElementType;
   emails: ParsedEmail[];
+  labels: GmailLabel[];
   summariesById: Record<string, string>;
   loadingIds: Set<string>;
   onSnooze: (email: ParsedEmail) => void;
@@ -21,7 +22,7 @@ interface KanbanColumnProps {
 }
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({
-  id, title, count, icon: Icon, emails, summariesById, loadingIds,
+  id, title, count, icon: Icon, emails, labels, summariesById, loadingIds,
   onSnooze, onDropEmail, onMessageClick, onCardVisible, onShowSummaryModal, onScroll
 }) => {
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -30,13 +31,23 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [filterUnread, setFilterUnread] = useState(false);
   const [filterAttachments, setFilterAttachments] = useState(false);
+  const [showAiSummary, setShowAiSummary] = useState(true);
+  const [filterLabels, setFilterLabels] = useState<Set<string>>(new Set());
+
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownContentRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      // Check both the trigger button (dropdownRef) and the content (dropdownContentRef)
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        dropdownContentRef.current &&
+        !dropdownContentRef.current.contains(event.target as Node)
+      ) {
         setShowDropdown(false);
       }
     };
@@ -52,19 +63,41 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
       const rect = dropdownRef.current.getBoundingClientRect();
       setDropdownPos({
         top: rect.bottom + 5,
-        left: rect.right - 208, // 208px is dropdown width (w-52)
+        left: rect.right - 240, // Increased width for better label display (w-60)
       });
     }
   }, [showDropdown]);
 
-  // Handle scroll to close dropdown
+  // Handle scroll to close dropdown (BUT ignore if scrolling inside the dropdown itself)
   useEffect(() => {
-    const handleScroll = () => {
-      if (showDropdown) setShowDropdown(false);
+    const handleScroll = (e: Event) => {
+      if (!showDropdown) return;
+
+      // If scrolling happens inside the dropdown content, DO NOT close
+      if (
+        dropdownContentRef.current &&
+        dropdownContentRef.current.contains(e.target as Node)
+      ) {
+        return;
+      }
+
+      // Otherwise (scrolling the page or kanban column), close it
+      setShowDropdown(false);
     };
     window.addEventListener('scroll', handleScroll, true);
     return () => window.removeEventListener('scroll', handleScroll, true);
   }, [showDropdown]);
+
+  // Get available labels in this column for filtering
+  const availableLabels = useMemo(() => {
+    const labelIdsInColumn = new Set<string>();
+    emails.forEach(e => e.labelIds?.forEach(id => labelIdsInColumn.add(id)));
+
+    return labels.filter(l =>
+      labelIdsInColumn.has(l.id) &&
+      !['INBOX', 'SPAM', 'TRASH', 'UNREAD', 'STARRED', 'SENT', 'DRAFT'].includes(l.id)
+    );
+  }, [emails, labels]);
 
   // Apply filters and sorting
   const filteredAndSortedEmails = React.useMemo(() => {
@@ -77,6 +110,9 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     if (filterAttachments) {
       result = result.filter(e => e.attachments && e.attachments.length > 0);
     }
+    if (filterLabels.size > 0) {
+      result = result.filter(e => e.labelIds?.some(id => filterLabels.has(id)));
+    }
 
     // Apply sorting
     result.sort((a, b) => {
@@ -86,10 +122,30 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
     });
 
     return result;
-  }, [emails, filterUnread, filterAttachments, sortOrder]);
+  }, [emails, filterUnread, filterAttachments, filterLabels, sortOrder]);
 
-  const hasActiveFilter = filterUnread || filterAttachments;
-  const activeFilterCount = (filterUnread ? 1 : 0) + (filterAttachments ? 1 : 0);
+  const hasActiveFilter = filterUnread || filterAttachments || filterLabels.size > 0;
+  const activeFilterCount = (filterUnread ? 1 : 0) + (filterAttachments ? 1 : 0) + filterLabels.size;
+
+  const toggleLabelFilter = (labelId: string) => {
+    setFilterLabels(prev => {
+      const next = new Set(prev);
+      if (next.has(labelId)) {
+        next.delete(labelId);
+      } else {
+        next.add(labelId);
+      }
+      return next;
+    });
+  };
+
+  const getLabelName = (label: GmailLabel) => {
+    if (label.id === 'IMPORTANT') return 'Important';
+    if (label.id.startsWith('CATEGORY_')) {
+      return label.name.charAt(0).toUpperCase() + label.name.slice(1).toLowerCase();
+    }
+    return label.name;
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -151,26 +207,46 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
           {showDropdown && createPortal(
             <div
-              className="fixed bg-white rounded-lg shadow-xl border border-slate-200 z-[9999] overflow-hidden w-52"
+              ref={dropdownContentRef}
+              className="fixed bg-white rounded-lg shadow-xl border border-slate-200 z-[9999] w-60 max-h-[80vh] overflow-y-auto"
               style={{ top: dropdownPos.top, left: dropdownPos.left }}
               onMouseDown={(e) => e.stopPropagation()}
             >
               {/* Sort Section */}
               <div className="p-2 border-b border-slate-100">
                 <div className="text-xs font-semibold text-slate-500 uppercase mb-2 px-2">Sort by</div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setSortOrder('newest')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded-md transition-colors text-center ${sortOrder === 'newest' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                  >
+                    Newest
+                  </button>
+                  <button
+                    onClick={() => setSortOrder('oldest')}
+                    className={`flex-1 px-2 py-1.5 text-xs rounded-md transition-colors text-center ${sortOrder === 'oldest' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
+                      }`}
+                  >
+                    Oldest
+                  </button>
+                </div>
+              </div>
+
+              {/* View Options */}
+              <div className="p-2 border-b border-slate-100">
+                <div className="text-xs font-semibold text-slate-500 uppercase mb-2 px-2">View</div>
                 <button
-                  onClick={() => setSortOrder('newest')}
-                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${sortOrder === 'newest' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
+                  onClick={() => setShowAiSummary(!showAiSummary)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-sm rounded-md hover:bg-slate-50 transition-colors"
                 >
-                  Newest first
-                </button>
-                <button
-                  onClick={() => setSortOrder('oldest')}
-                  className={`w-full text-left px-3 py-1.5 text-sm rounded-md transition-colors ${sortOrder === 'oldest' ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                >
-                  Oldest first
+                  <div className="flex items-center gap-2 text-slate-700">
+                    <Sparkles size={14} className={showAiSummary ? "text-indigo-500" : "text-slate-400"} />
+                    <span>AI Summary</span>
+                  </div>
+                  <div className={`w-8 h-4 rounded-full relative transition-colors ${showAiSummary ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showAiSummary ? 'left-4.5' : 'left-0.5'}`} style={{ left: showAiSummary ? '18px' : '2px' }} />
+                  </div>
                 </button>
               </div>
 
@@ -183,33 +259,64 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
                       onClick={() => {
                         setFilterUnread(false);
                         setFilterAttachments(false);
+                        setFilterLabels(new Set());
                       }}
-                      className="text-xs text-red-600 hover:text-red-700"
+                      className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1"
                     >
-                      Clear
+                      <X size={10} /> Clear
                     </button>
                   )}
                 </div>
-                <label className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filterUnread}
-                    onChange={(e) => setFilterUnread(e.target.checked)}
-                    className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded"
-                  />
-                  <Mail size={14} className="text-slate-500" />
-                  <span className="text-sm text-slate-700">Unread</span>
-                </label>
-                <label className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={filterAttachments}
-                    onChange={(e) => setFilterAttachments(e.target.checked)}
-                    className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded"
-                  />
-                  <Paperclip size={14} className="text-slate-500" />
-                  <span className="text-sm text-slate-700">Attachments</span>
-                </label>
+
+                {/* Basic Filters */}
+                <div className="space-y-1 mb-3">
+                  <label className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filterUnread}
+                      onChange={(e) => setFilterUnread(e.target.checked)}
+                      className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded"
+                    />
+                    <Mail size={14} className="text-slate-500" />
+                    <span className="text-sm text-slate-700">Unread</span>
+                  </label>
+                  <label className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={filterAttachments}
+                      onChange={(e) => setFilterAttachments(e.target.checked)}
+                      className="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded"
+                    />
+                    <Paperclip size={14} className="text-slate-500" />
+                    <span className="text-sm text-slate-700">Attachments</span>
+                  </label>
+                </div>
+
+                {/* Label Filters */}
+                {availableLabels.length > 0 && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="text-xs font-semibold text-slate-500 uppercase mb-2 px-2 mt-2">By Label</div>
+                    <div className="max-h-32 overflow-y-auto px-1 space-y-0.5">
+                      {availableLabels.map(label => (
+                        <button
+                          key={label.id}
+                          onClick={() => toggleLabelFilter(label.id)}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors ${filterLabels.has(label.id)
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${filterLabels.has(label.id) ? 'bg-indigo-600 border-indigo-600' : 'border-slate-300 bg-white'
+                            }`}>
+                            {filterLabels.has(label.id) && <Check size={10} className="text-white" />}
+                          </div>
+                          <Tag size={12} className={filterLabels.has(label.id) ? "text-indigo-500" : "text-slate-400"} />
+                          <span className="truncate flex-1 text-left">{getLabelName(label)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>,
             document.body
@@ -226,6 +333,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             key={email.id}
             email={email}
             column={id}
+            allLabels={labels}
             summaryText={summariesById[email.id]}
             isLoadingSummary={loadingIds.has(email.id)}
             onSnooze={onSnooze}
@@ -233,6 +341,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             onMessageClick={onMessageClick}
             onVisible={onCardVisible}
             onShowSummaryModal={onShowSummaryModal}
+            showAiSummary={showAiSummary}
           />
         ))}
         {filteredAndSortedEmails.length === 0 && (

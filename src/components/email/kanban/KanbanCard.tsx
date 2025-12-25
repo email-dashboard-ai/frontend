@@ -1,11 +1,12 @@
 import React, { useRef, useEffect } from 'react';
-import { ParsedEmail } from '../../../types/gmail';
-import { Star, Clock, ExternalLink, GripVertical, Sparkles, CheckCircle2, Loader2 } from 'lucide-react';
+import { ParsedEmail, GmailLabel } from '../../../types/gmail';
+import { Clock, ExternalLink, GripVertical, Sparkles, Loader2 } from 'lucide-react';
 import UserAvatar from '../../common/UserAvatar';
 
 interface KanbanCardProps {
   email: ParsedEmail;
   column: 'inbox' | 'important' | 'done';
+  allLabels: GmailLabel[];
   summaryText?: string;
   isLoadingSummary?: boolean;
   onSnooze: (email: ParsedEmail) => void;
@@ -13,11 +14,13 @@ interface KanbanCardProps {
   onMessageClick: (message: ParsedEmail) => void;
   onVisible?: (emailId: string) => void;
   onShowSummaryModal?: (email: ParsedEmail) => void;
+  showAiSummary?: boolean; // New prop
 }
 
 const KanbanCard: React.FC<KanbanCardProps> = ({
   email,
   column,
+  allLabels,
   summaryText,
   isLoadingSummary,
   onSnooze,
@@ -25,6 +28,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
   onMessageClick,
   onVisible,
   onShowSummaryModal,
+  showAiSummary = true, // Default true
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +75,50 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
     if (days < 7) return date.toLocaleDateString('en-US', { weekday: 'short' });
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
+
+  const getLabelColor = (name: string) => {
+    const colors = [
+      'bg-red-100 text-red-800 border-red-200',
+      'bg-orange-100 text-orange-800 border-orange-200',
+      'bg-amber-100 text-amber-800 border-amber-200',
+      'bg-green-100 text-green-800 border-green-200',
+      'bg-emerald-100 text-emerald-800 border-emerald-200',
+      'bg-teal-100 text-teal-800 border-teal-200',
+      'bg-cyan-100 text-cyan-800 border-cyan-200',
+      'bg-blue-100 text-blue-800 border-blue-200',
+      'bg-indigo-100 text-indigo-800 border-indigo-200',
+      'bg-violet-100 text-violet-800 border-violet-200',
+      'bg-purple-100 text-purple-800 border-purple-200',
+      'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200',
+      'bg-pink-100 text-pink-800 border-pink-200',
+      'bg-rose-100 text-rose-800 border-rose-200',
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
+  const getLabelName = (label: GmailLabel) => {
+    if (label.id === 'IMPORTANT') return 'Important';
+    if (label.id.startsWith('CATEGORY_')) {
+      return label.name.charAt(0).toUpperCase() + label.name.slice(1).toLowerCase();
+    }
+    return label.name;
+  };
+
+  const getVisibleLabels = () => {
+    if (!email.labelIds || !allLabels) return [];
+
+    return email.labelIds
+      .map(id => allLabels.find(l => l.id === id))
+      .filter((l): l is GmailLabel => !!l &&
+        !['INBOX', 'SPAM', 'TRASH', 'UNREAD', 'STARRED', 'SENT', 'DRAFT'].includes(l.id)
+      );
+  };
+
+  const visibleLabels = getVisibleLabels();
 
   const columnStyles = {
     inbox: {
@@ -123,23 +171,39 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
         <div className="mb-4 pl-2">
           <h3 className="text-sm font-bold text-slate-900 mb-2 leading-snug">{email.subject}</h3>
 
-          {/* AI Summary with loading state - Clickable to show modal */}
-          <div
-            className="bg-slate-50 rounded-md p-3 border-l-2 border-slate-800 cursor-pointer hover:bg-slate-100 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onShowSummaryModal) onShowSummaryModal(email);
-            }}
-          >
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1">
-              {isLoadingSummary ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-              AI Summary
-              <span className="text-slate-400 font-normal ml-auto">Click to expand</span>
+          {/* Labels */}
+          {visibleLabels.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {visibleLabels.map(label => (
+                <span
+                  key={label.id}
+                  className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${getLabelColor(label.name)}`}
+                >
+                  {getLabelName(label)}
+                </span>
+              ))}
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-              {isLoadingSummary ? 'Generating summary...' : (summaryText || email.snippet)}
-            </p>
-          </div>
+          )}
+
+          {/* AI Summary with loading state - Clickable to show modal */}
+          {showAiSummary && (
+            <div
+              className="bg-slate-50 rounded-md p-3 border-l-2 border-slate-800 cursor-pointer hover:bg-slate-100 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onShowSummaryModal) onShowSummaryModal(email);
+              }}
+            >
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-1">
+                {isLoadingSummary ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                AI Summary
+                <span className="text-slate-400 font-normal ml-auto">Click to expand</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+                {isLoadingSummary ? 'Generating summary...' : (summaryText || email.snippet)}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-slate-100 pt-3 pl-2">
