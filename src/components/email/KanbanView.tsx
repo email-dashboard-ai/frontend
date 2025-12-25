@@ -127,6 +127,20 @@ const KanbanView: React.FC<KanbanViewProps> = ({
     kanbanStatuses[e.id] === 'DONE'
   );
 
+  // Filter messages based on Backend Status (sorting/filtering now handled per-column)
+  const inboxEmails = messages.filter(e => {
+    const status = kanbanStatuses[e.id];
+    return !status || status === 'INBOX';
+  });
+
+  const importantEmails = messages.filter(e =>
+    kanbanStatuses[e.id] === 'IN_PROGRESS'
+  );
+
+  const doneEmails = messages.filter(e =>
+    kanbanStatuses[e.id] === 'DONE'
+  );
+
   return (
     <div className="h-full flex flex-col bg-white">
       <div className="flex-1 overflow-hidden p-6 w-full">

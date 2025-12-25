@@ -83,3 +83,36 @@ export interface EmailPageResponse {
   messages: ParsedEmail[];
   nextPageToken: string | null;
 }
+
+// Smart Search Result from backend
+export interface SearchResult {
+  messageId: string;
+  subject: string;
+  from: string;
+  snippet: string;
+  receivedDate: string;
+  strategy: 'GMAIL_API' | 'INTERNAL' | 'HYBRID';
+}
+
+// Smart Search Request
+export interface SearchRequest {
+  // Gmail API fields → strategy: GMAIL_API or HYBRID
+  from?: string;
+  to?: string;
+  cc?: string;
+  bcc?: string;
+  subject?: string;
+  filename?: string;
+  after?: string;   // YYYY-MM-DD
+  before?: string;  // YYYY-MM-DD
+  label?: string;
+  category?: string;
+  hasAttachment?: boolean;
+  isUnread?: boolean;
+  isStarred?: boolean;
+  isRead?: boolean;
+  isImportant?: boolean;
+
+  // Fuzzy search → strategy: INTERNAL or HYBRID
+  body?: string;
+}
