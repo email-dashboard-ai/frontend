@@ -27,7 +27,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
     }, []);
 
     const handleSearch = useCallback(async () => {
-        // Check if any field has value
         const hasValue = Object.values(searchRequest).some(v => v !== undefined && v !== '' && v !== false);
         if (!hasValue) return;
 
@@ -60,7 +59,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
     return (
         <div className="relative" ref={filterRef}>
             <div className="flex items-center gap-2">
-                {/* Main search input for subject/body */}
                 <div className="relative flex-1 group">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500" size={18} />
                     <input
@@ -73,12 +71,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                     />
                 </div>
 
-                {/* Filter button */}
                 <button
                     onClick={() => setShowFilters(!showFilters)}
                     className={`p-2.5 rounded-lg transition-all relative ${showFilters || activeFiltersCount > 0
-                            ? 'bg-blue-100 text-blue-600'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-blue-100 text-blue-600'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                     title="Advanced filters"
                 >
@@ -90,7 +87,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                     )}
                 </button>
 
-                {/* Search button */}
                 <button
                     onClick={handleSearch}
                     disabled={isSearching}
@@ -99,7 +95,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                     {isSearching ? 'Searching...' : 'Search'}
                 </button>
 
-                {/* Clear button */}
                 {isSearchActive && (
                     <button
                         onClick={handleClear}
@@ -111,11 +106,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                 )}
             </div>
 
-            {/* Filter dropdown panel */}
             {showFilters && (
                 <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {/* From */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
                             <input
@@ -126,8 +119,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* To */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
                             <input
@@ -138,8 +129,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* Subject */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Subject</label>
                             <input
@@ -150,8 +139,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* CC */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">CC</label>
                             <input
@@ -162,8 +149,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* BCC */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">BCC</label>
                             <input
@@ -174,8 +159,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* Filename */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Attachment name</label>
                             <input
@@ -186,8 +169,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* After date */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                                 <Calendar size={12} /> After
@@ -199,8 +180,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* Before date */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1 flex items-center gap-1">
                                 <Calendar size={12} /> Before
@@ -212,8 +191,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
-
-                        {/* Label */}
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">Label</label>
                             <input
@@ -226,7 +203,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                         </div>
                     </div>
 
-                    {/* Toggle filters */}
                     <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100">
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
@@ -238,7 +214,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                             <Paperclip size={14} className="text-gray-500" />
                             <span className="text-sm text-gray-600">Has attachment</span>
                         </label>
-
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -249,7 +224,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                             <Mail size={14} className="text-gray-500" />
                             <span className="text-sm text-gray-600">Unread</span>
                         </label>
-
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
@@ -260,7 +234,6 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                             <Star size={14} className="text-gray-500" />
                             <span className="text-sm text-gray-600">Starred</span>
                         </label>
-
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
