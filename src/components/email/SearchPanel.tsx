@@ -54,61 +54,68 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
         }));
     };
 
-    const activeFiltersCount = Object.values(searchRequest).filter(v => v !== undefined && v !== '' && v !== false).length;
+    const activeFiltersCount = Object.entries(searchRequest)
+        .filter(([key, value]) => key !== 'body' && value !== undefined && value !== '' && value !== false)
+        .length;
 
     return (
-        <div className="relative" ref={filterRef}>
-            <div className="flex items-center gap-2">
-                <div className="relative flex-1 group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search emails..."
-                        value={searchRequest.body || ''}
-                        onChange={(e) => updateField('body', e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                        className="w-full bg-gray-100 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all"
-                    />
-                </div>
+        <div className="relative w-full max-w-[720px] group" ref={filterRef}>
+            <div className={`
+                flex items-center w-full transition-all duration-200 ease-in-out
+                ${showFilters ? 'bg-white shadow-lg rounded-t-[28px] rounded-b-none border-b-0' : 'bg-[#EAF1FB] hover:bg-white hover:shadow-md rounded-full'}
+                focus-within:bg-white focus-within:shadow-md
+                h-12 px-2
+            `}>
+                <button
+                    onClick={handleSearch}
+                    className="p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                    <Search size={20} />
+                </button>
 
+                <input
+                    type="text"
+                    placeholder="Search mail"
+                    value={searchRequest.body || ''}
+                    onChange={(e) => updateField('body', e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-gray-800 placeholder-gray-500 text-base px-2 h-full w-full"
+                />
+
+                {/* Clear Button */}
+                {(searchRequest.body || isSearchActive) && (
+                    <button
+                        onClick={handleClear}
+                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors mr-1"
+                        title="Clear search"
+                    >
+                        <X size={19} />
+                    </button>
+                )}
+
+                {/* Filter Toggle */}
                 <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`p-2.5 rounded-lg transition-all relative ${showFilters || activeFiltersCount > 0
+                    className={`p-2 rounded-full transition-colors relative mr-1 ${showFilters || activeFiltersCount > 0
                         ? 'bg-blue-100 text-blue-600'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        : 'text-gray-500 hover:bg-gray-200'
                         }`}
-                    title="Advanced filters"
+                    title="Show search options"
                 >
-                    <Filter size={18} />
-                    {activeFiltersCount > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                    <Filter size={20} />
+                    {activeFiltersCount > 0 && !showFilters && (
+                        <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white ring-2 ring-white transform translate-x-1 -translate-y-1">
                             {activeFiltersCount}
                         </span>
                     )}
                 </button>
-
-                <button
-                    onClick={handleSearch}
-                    disabled={isSearching}
-                    className="px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-                >
-                    {isSearching ? 'Searching...' : 'Search'}
-                </button>
-
-                {isSearchActive && (
-                    <button
-                        onClick={handleClear}
-                        className="p-2.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
-                        title="Clear search"
-                    >
-                        <X size={18} />
-                    </button>
-                )}
             </div>
 
+            {/* Expanded Filter Panel */}
             {showFilters && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-b-[28px] border-t-0 p-4 z-50 animate-in fade-in slide-in-from-top-1 duration-200 mx-[1px]">
+                    {/* Keep the existing form content but ensure it fits nicely */}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
                             <input
@@ -116,6 +123,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 placeholder="sender@email.com"
                                 value={searchRequest.from || ''}
                                 onChange={(e) => updateField('from', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -126,6 +134,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 placeholder="recipient@email.com"
                                 value={searchRequest.to || ''}
                                 onChange={(e) => updateField('to', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -136,6 +145,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 placeholder="Email subject"
                                 value={searchRequest.subject || ''}
                                 onChange={(e) => updateField('subject', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -146,6 +156,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 placeholder="cc@email.com"
                                 value={searchRequest.cc || ''}
                                 onChange={(e) => updateField('cc', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -156,6 +167,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 placeholder="bcc@email.com"
                                 value={searchRequest.bcc || ''}
                                 onChange={(e) => updateField('bcc', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -166,6 +178,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 placeholder="file.pdf"
                                 value={searchRequest.filename || ''}
                                 onChange={(e) => updateField('filename', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -198,6 +211,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                                 placeholder="important"
                                 value={searchRequest.label || ''}
                                 onChange={(e) => updateField('label', e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                                 className="w-full px-3 py-2 bg-gray-50 rounded-lg text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             />
                         </div>
@@ -244,6 +258,21 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                             <AlertCircle size={14} className="text-gray-500" />
                             <span className="text-sm text-gray-600">Important</span>
                         </label>
+                    </div>
+
+                    <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-100">
+                        <button
+                            onClick={() => setSearchRequest({})}
+                            className="text-sm text-gray-500 hover:text-gray-700 font-medium px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            Reset filters
+                        </button>
+                        <button
+                            onClick={handleSearch}
+                            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm hover:shadow-md transition-all active:scale-95"
+                        >
+                            Search
+                        </button>
                     </div>
                 </div>
             )}

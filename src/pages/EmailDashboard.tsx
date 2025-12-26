@@ -215,27 +215,28 @@ const EmailDashboard: React.FC = () => {
           </h1>
         </div>
 
-        <div className="flex-1 max-w-2xl mx-8 relative hidden md:flex items-center gap-3">
-          <SearchPanel
-            onSearchResults={(results) => {
-              setSearchResults(results);
-              setIsSearchActive(true);
-            }}
-            onClearSearch={() => {
-              setSearchResults([]);
-              setIsSearchActive(false);
-            }}
-            isSearchActive={isSearchActive}
-          />
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => {
-                setViewMode('list');
+        <div className="flex-1 max-w-4xl mx-auto hidden md:flex items-center justify-center gap-4 px-4">
+          <div className="flex-1 max-w-2xl">
+            <SearchPanel
+              onSearchResults={(results) => {
+                setSearchResults(results);
+                setIsSearchActive(true);
               }}
-              className={`px-3 py-2 rounded-md transition-all ${viewMode === 'list'
-                ? 'bg-white shadow-sm text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              onClearSearch={() => {
+                setSearchResults([]);
+                setIsSearchActive(false);
+              }}
+              isSearchActive={isSearchActive}
+            />
+          </div>
+
+          {/* View Toggle - Pill Style */}
+          <div className="flex bg-gray-100 p-1 rounded-full border border-gray-200 flex-shrink-0">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'list'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
               title="List View"
             >
@@ -244,15 +245,14 @@ const EmailDashboard: React.FC = () => {
             <button
               onClick={() => {
                 setViewMode('kanban');
-                // Ensure Kanban is visible even if a message was opened on desktop
                 setIsMobileDetailView(false);
                 dispatch(setSelectedMessage(null));
               }}
-              className={`px-3 py-2 rounded-md transition-all ${viewMode === 'kanban'
-                ? 'bg-white shadow-sm text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'kanban'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
-              title="Kanban View"
+              title="Kanban Board"
             >
               <LayoutGrid size={18} />
             </button>
@@ -260,6 +260,7 @@ const EmailDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
+
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 overflow-hidden">
               {user?.avatar ? (
