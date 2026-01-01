@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Search, Filter, X, Calendar, Paperclip, Mail, Star, AlertCircle } from 'lucide-react';
+import { Search, Filter, X, Calendar, Paperclip, Mail, Star, AlertCircle, Loader2 } from 'lucide-react';
 import { gmailService } from '../../services/gmailService';
 import type { SearchRequest, SearchResult } from '../../types/gmail';
 
@@ -269,9 +269,11 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                         </button>
                         <button
                             onClick={handleSearch}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm hover:shadow-md transition-all active:scale-95"
+                            disabled={isSearching}
+                            className={`px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-2 ${isSearching ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >
-                            Search
+                            {isSearching && <Loader2 size={16} className="animate-spin" />}
+                            {isSearching ? 'Searching...' : 'Search'}
                         </button>
                     </div>
                 </div>

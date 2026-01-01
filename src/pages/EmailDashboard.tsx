@@ -207,79 +207,83 @@ const EmailDashboard: React.FC = () => {
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       <Toaster position="bottom-center" />
       {/* Header */}
-      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-50 select-none">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-lg shadow-md" />
-          <h1 className="text-xl font-bold text-gray-900">
-            {viewMode === 'kanban' ? 'Kanban Dashboard' : 'Gmail Dashboard'}
-          </h1>
-        </div>
-
-        <div className="flex-1 max-w-4xl mx-auto hidden md:flex items-center justify-center gap-4 px-4">
-          <div className="flex-1 max-w-2xl">
-            <SearchPanel
-              onSearchResults={(results) => {
-                setSearchResults(results);
-                setIsSearchActive(true);
-              }}
-              onClearSearch={() => {
-                setSearchResults([]);
-                setIsSearchActive(false);
-              }}
-              isSearchActive={isSearchActive}
-            />
+      <header className="h-16 bg-white border-b border-gray-200 flex-shrink-0 z-50 select-none">
+        <div className="h-full px-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          {/* Left Section - Logo & Title */}
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-lg shadow-md" />
+            <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">
+              {viewMode === 'kanban' ? 'Kanban Dashboard' : 'Gmail Dashboard'}
+            </h1>
           </div>
 
-          {/* View Toggle - Pill Style */}
-          <div className="flex bg-gray-100 p-1 rounded-full border border-gray-200 flex-shrink-0">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'list'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-                }`}
-              title="List View"
-            >
-              <ListIcon size={18} />
-            </button>
-            <button
-              onClick={() => {
-                setViewMode('kanban');
-                setIsMobileDetailView(false);
-                dispatch(setSelectedMessage(null));
-              }}
-              className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'kanban'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-                }`}
-              title="Kanban Board"
-            >
-              <LayoutGrid size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 overflow-hidden">
-              {user?.avatar ? (
-                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-              ) : (
-                user?.name?.[0] || 'U'
-              )}
+          {/* Center Section - Search & View Toggle (fixed position) */}
+          <div className="hidden md:flex items-center gap-4">
+            <div className="w-[500px]">
+              <SearchPanel
+                onSearchResults={(results) => {
+                  setSearchResults(results);
+                  setIsSearchActive(true);
+                }}
+                onClearSearch={() => {
+                  setSearchResults([]);
+                  setIsSearchActive(false);
+                }}
+                isSearchActive={isSearchActive}
+              />
             </div>
-            <span className="text-sm font-medium text-gray-700 hidden md:block">
-              {user?.name || 'User'}
-            </span>
+
+            {/* View Toggle - Pill Style */}
+            <div className="flex bg-gray-100 p-1 rounded-full border border-gray-200 flex-shrink-0">
+              <button
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'list'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                title="List View"
+              >
+                <ListIcon size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  setViewMode('kanban');
+                  setIsMobileDetailView(false);
+                  dispatch(setSelectedMessage(null));
+                }}
+                className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'kanban'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                title="Kanban Board"
+              >
+                <LayoutGrid size={18} />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => dispatch(logout())}
-            className="text-gray-500 hover:text-gray-700 transition-colors"
-            title="Logout"
-          >
-            <LogOut size={20} />
-          </button>
+
+          {/* Right Section - User & Logout */}
+          <div className="flex items-center gap-4 justify-end">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 overflow-hidden">
+                {user?.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  user?.name?.[0] || 'U'
+                )}
+              </div>
+              <span className="text-sm font-medium text-gray-700 hidden md:block">
+                {user?.name || 'User'}
+              </span>
+            </div>
+            <button
+              onClick={() => dispatch(logout())}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+              title="Logout"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
         </div>
       </header>
 
