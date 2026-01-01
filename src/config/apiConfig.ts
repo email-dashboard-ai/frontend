@@ -36,6 +36,7 @@ export interface ApiConfig {
       unsnooze: (id: string) => string;
       snoozedInfo: string;
       thread: (id: string) => string;
+      search: string;
     };
     kanban: {
       statuses: string;
@@ -85,6 +86,7 @@ class ApiConfigManager {
           unsnooze: (id: string) => `/api/gmail/${id}/unsnooze`,
           snoozedInfo: "/api/gmail/snoozed-info",
           thread: (id: string) => `/api/gmail/thread/${id}`,
+          search: "/api/gmail/search",
         },
         kanban: {
           statuses: "/api/kanban/statuses",

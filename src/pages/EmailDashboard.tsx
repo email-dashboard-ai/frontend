@@ -10,8 +10,8 @@ import {
   clearMessages
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
-import { GmailLabel, ParsedEmail } from '../types/gmail';
-import { LogOut, X, Search, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { GmailLabel, ParsedEmail, SearchResult } from '../types/gmail';
+import { LogOut, X, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { gmailService } from '../services/gmailService';
 
 // Components
@@ -20,6 +20,8 @@ import EmailList from '../components/email/EmailList';
 import EmailDetail from '../components/email/EmailDetail';
 import ComposeEmailModal from '../components/email/ComposeEmailModal';
 import KanbanView from '../components/email/KanbanView';
+import SearchPanel from '../components/email/SearchPanel';
+import SearchResults from '../components/email/SearchResults';
 
 // Hooks
 import { useResizableLayout } from '../hooks/useResizableLayout';
@@ -30,7 +32,8 @@ const EmailDashboard: React.FC = () => {
   const { user } = useAppSelector(state => state.auth);
   const { labels, selectedLabel, messages, selectedMessage, isLoading, error, nextPageToken } = useAppSelector(state => state.gmail);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
@@ -204,7 +207,7 @@ const EmailDashboard: React.FC = () => {
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
       <Toaster position="bottom-center" />
       {/* Header */}
-      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-10 select-none">
+      <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0 z-50 select-none">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-lg shadow-md" />
           <h1 className="text-xl font-bold text-gray-900">
@@ -212,26 +215,28 @@ const EmailDashboard: React.FC = () => {
           </h1>
         </div>
 
-        <div className="flex-1 max-w-2xl mx-8 relative hidden md:flex items-center gap-3">
-          <div className="relative group flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 group-focus-within:text-blue-600 transition-colors" size={20} />
-            <input
-              type="text"
-              placeholder="Search mail"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-gray-100 border-none rounded-lg pl-12 pr-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-blue-100 focus:bg-white transition-all shadow-sm"
+        <div className="flex-1 max-w-4xl mx-auto hidden md:flex items-center justify-center gap-4 px-4">
+          <div className="flex-1 max-w-2xl">
+            <SearchPanel
+              onSearchResults={(results) => {
+                setSearchResults(results);
+                setIsSearchActive(true);
+              }}
+              onClearSearch={() => {
+                setSearchResults([]);
+                setIsSearchActive(false);
+              }}
+              isSearchActive={isSearchActive}
             />
           </div>
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+
+          {/* View Toggle - Pill Style */}
+          <div className="flex bg-gray-100 p-1 rounded-full border border-gray-200 flex-shrink-0">
             <button
-              onClick={() => {
-                setViewMode('list');
-              }}
-              className={`px-3 py-2 rounded-md transition-all ${viewMode === 'list'
-                ? 'bg-white shadow-sm text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'list'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
               title="List View"
             >
@@ -240,15 +245,14 @@ const EmailDashboard: React.FC = () => {
             <button
               onClick={() => {
                 setViewMode('kanban');
-                // Ensure Kanban is visible even if a message was opened on desktop
                 setIsMobileDetailView(false);
                 dispatch(setSelectedMessage(null));
               }}
-              className={`px-3 py-2 rounded-md transition-all ${viewMode === 'kanban'
-                ? 'bg-white shadow-sm text-blue-600'
-                : 'text-gray-600 hover:text-gray-900'
+              className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'kanban'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
                 }`}
-              title="Kanban View"
+              title="Kanban Board"
             >
               <LayoutGrid size={18} />
             </button>
@@ -256,6 +260,7 @@ const EmailDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4">
+
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 overflow-hidden">
               {user?.avatar ? (
@@ -306,42 +311,61 @@ const EmailDashboard: React.FC = () => {
               onMouseDown={startResizingSidebar}
             />
 
-            <EmailList
-              listWidth={listWidth}
-              isMobileDetailView={isMobileDetailView}
-              messages={messages}
-              selectedMessage={selectedMessage}
-              selectedLabel={selectedLabel}
-              isLoading={isLoading}
-              searchQuery={searchQuery}
-              onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
-              onMessageClick={handleMessageClick}
-              listRef={listRef}
-              onToggleStar={handleToggleStar}
-              onDelete={handleDeleteEmail}
-              selectedIds={selectedEmailIds}
-              onToggleSelection={toggleEmailSelection}
-              onBulkDelete={(ids) => {
-                handleBulkDelete(ids);
-                setSelectedEmailIds(new Set());
-              }}
-              onBulkMarkRead={(ids, isRead) => {
-                handleBulkMarkRead(ids, isRead);
-                setSelectedEmailIds(new Set());
-              }}
-              onClearSelection={() => setSelectedEmailIds(new Set())}
-              onNextPage={handleNextPage}
-              onPrevPage={handlePrevPage}
-              hasNextPage={!!nextPageToken}
-              hasPrevPage={historyStack.length > 0}
-              onSnooze={(emailId, snoozedUntil) => {
-                if (selectedLabel) {
-                  handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
-                }
-              }}
-              snoozedInfo={snoozedInfo}
-              onUnsnooze={handleUnsnoozeEmail}
-            />
+            {isSearchActive ? (
+              <SearchResults
+                results={searchResults}
+                onSelectResult={async (messageId) => {
+                  try {
+                    const message = await gmailService.getMessage(messageId);
+                    dispatch(setSelectedMessage(message));
+                    if (isMobile) setIsMobileDetailView(true);
+                  } catch (e) {
+                    console.error('Failed to load message', e);
+                  }
+                }}
+                onBack={() => {
+                  setIsSearchActive(false);
+                  setSearchResults([]);
+                }}
+              />
+            ) : (
+              <EmailList
+                listWidth={listWidth}
+                isMobileDetailView={isMobileDetailView}
+                messages={messages}
+                selectedMessage={selectedMessage}
+                selectedLabel={selectedLabel}
+                isLoading={isLoading}
+                searchQuery=""
+                onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
+                onMessageClick={handleMessageClick}
+                listRef={listRef}
+                onToggleStar={handleToggleStar}
+                onDelete={handleDeleteEmail}
+                selectedIds={selectedEmailIds}
+                onToggleSelection={toggleEmailSelection}
+                onBulkDelete={(ids) => {
+                  handleBulkDelete(ids);
+                  setSelectedEmailIds(new Set());
+                }}
+                onBulkMarkRead={(ids, isRead) => {
+                  handleBulkMarkRead(ids, isRead);
+                  setSelectedEmailIds(new Set());
+                }}
+                onClearSelection={() => setSelectedEmailIds(new Set())}
+                onNextPage={handleNextPage}
+                onPrevPage={handlePrevPage}
+                hasNextPage={!!nextPageToken}
+                hasPrevPage={historyStack.length > 0}
+                onSnooze={(emailId, snoozedUntil) => {
+                  if (selectedLabel) {
+                    handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
+                  }
+                }}
+                snoozedInfo={snoozedInfo}
+                onUnsnooze={handleUnsnoozeEmail}
+              />
+            )}
 
             <div
               className="w-1 cursor-col-resize hover:bg-blue-400 active:bg-blue-600 transition-colors z-20 hidden md:block select-none"
@@ -376,18 +400,21 @@ const EmailDashboard: React.FC = () => {
                 onBack={handleBackToKanban}
               />
             ) : (
-              <KanbanView
-                messages={messages}
-                kanbanStatuses={kanbanStatuses}
-                onMessageClick={handleMessageClick}
-                onToggleStar={handleToggleStar}
-                onUpdateStatus={handleKanbanUpdateStatus}
-                onSnooze={(emailId, snoozedUntil) => {
-                  if (selectedLabel) {
-                    handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
-                  }
-                }}
-              />
+              <div className="w-full h-full">
+                <KanbanView
+                  messages={messages}
+                  labels={labels}
+                  kanbanStatuses={kanbanStatuses}
+                  onMessageClick={handleMessageClick}
+                  onToggleStar={handleToggleStar}
+                  onUpdateStatus={handleKanbanUpdateStatus}
+                  onSnooze={(emailId, snoozedUntil) => {
+                    if (selectedLabel) {
+                      handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
+                    }
+                  }}
+                />
+              </div>
             )}
           </>
         )}

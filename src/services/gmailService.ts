@@ -1,5 +1,5 @@
 import { api, apiConfig } from '../config/apiConfig';
-import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse } from '../types/gmail';
+import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse, SearchResult, SearchRequest } from '../types/gmail';
 import type { ApiResponse } from '../types/api';
 import { appConfig } from '../config/appConfig';
 
@@ -317,6 +317,17 @@ class GmailService {
   async getSnoozedEmailsInfo(signal?: AbortSignal): Promise<Record<string, string>> {
     const config = apiConfig.getConfig();
     const { data } = await api.get<ApiResponse<Record<string, string>>>(config.endpoints.gmail.snoozedInfo, { signal });
+    return data.data;
+  }
+
+  // Search: Gmail fields → GMAIL_API | body → INTERNAL | both → HYBRID
+  async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResult[]> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.post<ApiResponse<SearchResult[]>>(
+      config.endpoints.gmail.search,
+      request,
+      { signal }
+    );
     return data.data;
   }
 }
