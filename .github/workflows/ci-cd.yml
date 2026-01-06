@@ -56,11 +56,57 @@ jobs:
         run: npm run type-check --if-present || npx tsc --noEmit
 
   # ============================================
-  # STAGE 3: Deploy to Vercel
+  # STAGE 3: Security - Dependency Audit
+  # ============================================
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Non-blocking - advisory only
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit-level=high
+
+  # ============================================
+  # STAGE 4: Build Check
+  # ============================================
+  build:
+    name: Build Check
+    needs: [gitleaks, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production
+        run: npm run build
+
+  # ============================================
+  # STAGE 5: Deploy to Vercel
   # ============================================
   deploy:
     name: Deploy to Vercel
-    needs: [gitleaks, lint]
+    needs: [build, dependency-audit]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
