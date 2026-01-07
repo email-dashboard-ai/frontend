@@ -68,9 +68,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
             `}>
                 <button
                     onClick={handleSearch}
-                    className="p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                    disabled={isSearching}
+                    className="p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors disabled:cursor-not-allowed"
                 >
-                    <Search size={20} />
+                    {isSearching ? (
+                        <Loader2 size={20} className="animate-spin text-blue-600" />
+                    ) : (
+                        <Search size={20} />
+                    )}
                 </button>
 
                 <input
@@ -78,8 +83,9 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                     placeholder="Search mail"
                     value={searchRequest.body || ''}
                     onChange={(e) => updateField('body', e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-gray-800 placeholder-gray-500 text-base px-2 h-full w-full"
+                    onKeyDown={(e) => e.key === 'Enter' && !isSearching && handleSearch()}
+                    disabled={isSearching}
+                    className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-gray-800 placeholder-gray-500 text-base px-2 h-full w-full disabled:cursor-not-allowed"
                 />
 
                 {/* Clear Button */}
