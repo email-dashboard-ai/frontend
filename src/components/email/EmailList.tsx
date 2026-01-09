@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { fetchUserProfiles } from '../../store/slices/gmailSlice';
-import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare, Clock, BellOff } from 'lucide-react';
+import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare, Clock, BellOff, Inbox, AlertTriangle } from 'lucide-react';
 import EmailContextMenu from './EmailContextMenu';
 import SnoozeDatePicker from './SnoozeDatePicker';
 import UserAvatar from '../common/UserAvatar';
@@ -32,6 +32,8 @@ interface EmailListProps {
   onSnooze: (emailId: string, snoozedUntil: string) => void;
   snoozedInfo?: Record<string, string>;
   onUnsnooze?: (emailId: string) => void;
+  onMoveToInbox?: (emailId: string) => void;
+  onPermanentlyDelete?: (emailId: string) => void;
 }
 
 const EmailList: React.FC<EmailListProps> = ({
@@ -58,7 +60,9 @@ const EmailList: React.FC<EmailListProps> = ({
   hasPrevPage,
   onSnooze,
   snoozedInfo,
-  onUnsnooze
+  onUnsnooze,
+  onMoveToInbox,
+  onPermanentlyDelete
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; emailId: string } | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -66,7 +70,12 @@ const EmailList: React.FC<EmailListProps> = ({
   const dispatch = useAppDispatch();
   const { knownUsers } = useAppSelector(state => state.gmail);
   const isInTrash = selectedLabel?.id === 'TRASH';
+  const isInSpam = selectedLabel?.id === 'SPAM';
   const isInSnoozed = selectedLabel?.name === 'SNOOZED';
+  const isInSent = selectedLabel?.id === 'SENT';
+  const isInDraft = selectedLabel?.id === 'DRAFT';
+  // Hide star in Trash, Spam, Sent, Draft
+  const showStarButton = !isInTrash && !isInSpam && !isInSent && !isInDraft;
 
   const formatSnoozeUntil = (dateString: string) => {
     const date = new Date(dateString);
@@ -172,7 +181,34 @@ const EmailList: React.FC<EmailListProps> = ({
                 >
                   {isFirstSelectedRead ? <Mail size={18} /> : <MailOpen size={18} />}
                 </button>
-                {!isInTrash && (
+                {/* Move to Inbox for Trash/Spam */}
+                {(isInTrash || isInSpam) && onMoveToInbox && (
+                  <button
+                    onClick={() => {
+                      Array.from(selectedIds).forEach(id => onMoveToInbox(id));
+                      onClearSelection();
+                    }}
+                    className="p-2 hover:bg-green-100 rounded text-green-600 transition-colors"
+                    title={isInSpam ? 'Not Spam' : 'Move to Inbox'}
+                  >
+                    <Inbox size={18} />
+                  </button>
+                )}
+                {/* Delete/Permanently Delete */}
+                {isInTrash || isInSpam ? (
+                  onPermanentlyDelete && (
+                    <button
+                      onClick={() => {
+                        Array.from(selectedIds).forEach(id => onPermanentlyDelete(id));
+                        onClearSelection();
+                      }}
+                      className="p-2 hover:bg-red-100 rounded text-red-600 transition-colors"
+                      title="Delete Forever"
+                    >
+                      <AlertTriangle size={18} />
+                    </button>
+                  )
+                ) : (
                   <button
                     onClick={() => onBulkDelete(Array.from(selectedIds))}
                     className="p-2 hover:bg-red-100 rounded text-red-600 transition-colors"
@@ -232,11 +268,11 @@ const EmailList: React.FC<EmailListProps> = ({
                   setContextMenu({ x: e.clientX, y: e.clientY, emailId: message.id });
                 }}
                 onClick={() => onMessageClick(message)}
-                className={`border-b border-gray-100 p-4 transition-colors duration-200 group cursor-pointer ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
+                className={`border-b border-gray-100 p-4 group cursor-pointer ${selectedMessage?.id === message.id ? 'bg-blue-50 border-l-4 border-l-blue-600' : 'hover:bg-gray-50 border-l-4 border-l-transparent'
                   } ${!message.isRead ? 'bg-white' : 'bg-gray-50/50'} ${selectedIds.has(message.id) ? 'bg-blue-50/50' : ''}`}
               >
                 <div className="flex items-start justify-between mb-1">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
                     {/* Checkbox */}
                     <button
                       onClick={(e) => {
@@ -252,24 +288,28 @@ const EmailList: React.FC<EmailListProps> = ({
                       )}
                     </button>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleStar(message.id, message.isStarred);
-                      }}
-                      className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
-                      title={message.isStarred ? 'Remove star' : 'Add star'}
-                    >
-                      <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
-                    </button>
+                    {showStarButton && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleStar(message.id, message.isStarred);
+                        }}
+                        className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
+                        title={message.isStarred ? 'Remove star' : 'Add star'}
+                      >
+                        <Star size={16} className={message.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
+                      </button>
+                    )}
 
-                    {/* Avatar */}
-                    <UserAvatar
-                      email={extractEmail(message.from)}
-                      name={extractName(message.from)}
-                      size="w-8 h-8"
-                      className="mr-1"
-                    />
+                    {/* Avatar - prevent shrinking */}
+                    <div className="flex-shrink-0">
+                      <UserAvatar
+                        email={extractEmail(message.from)}
+                        name={extractName(message.from)}
+                        size="w-8 h-8"
+                        className="mr-1"
+                      />
+                    </div>
 
                     <span
                       className={`text-sm truncate cursor-pointer ${!message.isRead ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
@@ -278,21 +318,54 @@ const EmailList: React.FC<EmailListProps> = ({
                       {extractName(message.from)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className={`text-xs mr-2 flex-shrink-0 ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
+                  {/* Fixed width for date/actions to prevent layout shift */}
+                  <div className="flex items-center justify-end gap-1 w-[85px] flex-shrink-0">
+                    <span className={`text-xs mr-1 truncate w-full text-right ${!message.isRead ? 'font-semibold text-blue-600' : 'text-gray-500'}`}>
                       {formatDate(message.date)}
                     </span>
-                    {!isInTrash && selectedIds.size === 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDelete(message.id);
-                        }}
-                        className="p-1.5 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} className="text-gray-400 hover:text-red-600" />
-                      </button>
+                    {/* Action buttons based on label */}
+                    {selectedIds.size === 0 && (
+                      <>
+                        {/* Move to Inbox for Trash/Spam */}
+                        {(isInTrash || isInSpam) && onMoveToInbox && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onMoveToInbox(message.id);
+                            }}
+                            className="p-1.5 hover:bg-green-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            title={isInSpam ? 'Not Spam' : 'Move to Inbox'}
+                          >
+                            <Inbox size={16} className="text-gray-400 hover:text-green-600" />
+                          </button>
+                        )}
+                        {/* Delete/Permanently Delete */}
+                        {isInTrash || isInSpam ? (
+                          onPermanentlyDelete && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onPermanentlyDelete(message.id);
+                              }}
+                              className="p-1.5 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Delete Forever"
+                            >
+                              <AlertTriangle size={16} className="text-gray-400 hover:text-red-600" />
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDelete(message.id);
+                            }}
+                            className="p-1.5 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} className="text-gray-400 hover:text-red-600" />
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
