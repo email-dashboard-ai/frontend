@@ -17,27 +17,19 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ email, name, size = "w-10 h-10"
     const { user } = useAppSelector(state => state.auth);
     const { knownUsers } = useAppSelector(state => state.gmail);
 
-    const [imgSrc, setImgSrc] = useState<string | null>(null);
-
-    // 1. Determine the best initial source
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+    const getInitialSrc = () => {
         const cleanEmail = email.trim().toLowerCase();
+        if (user?.email === cleanEmail && user.avatar) return user.avatar;
+        if (knownUsers?.[cleanEmail]?.avatar) return knownUsers[cleanEmail].avatar;
+        return `https://www.gravatar.com/avatar/${md5(cleanEmail)}?d=404`;
+    };
 
-        // A. Internal Profile (Logged in user or Known User)
-        if (user?.email === cleanEmail && user.avatar) {
-            setImgSrc(user.avatar);
-            return;
-        }
-        if (knownUsers?.[cleanEmail]?.avatar) {
-            setImgSrc(knownUsers[cleanEmail].avatar);
-            return;
-        }
+    const [imgSrc, setImgSrc] = useState<string | null>(getInitialSrc);
 
-        // B. Gravatar
-        const gravatarUrl = `https://www.gravatar.com/avatar/${md5(cleanEmail)}?d=404`;
-        setImgSrc(gravatarUrl);
-    }, [email, user, knownUsers]);
+    useEffect(() => {
+        setImgSrc(getInitialSrc());
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [email, user?.avatar, knownUsers]);
 
     const handleImgError = () => {
         if (!imgSrc) return;

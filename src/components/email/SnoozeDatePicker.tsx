@@ -124,12 +124,12 @@ const MiniCalendar: React.FC<MiniCalendarProps> = ({ selectedDate, onSelectDate,
                 onClick={() => !isDisabled(day) && handleSelectDay(day)}
                 disabled={isDisabled(day)}
                 className={`w-full h-full rounded-lg text-sm font-medium transition-all ${isSelected(day)
-                    ? 'bg-blue-600 text-white'
-                    : isToday(day)
-                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                      : isDisabled(day)
-                        ? 'text-gray-300 cursor-not-allowed'
-                        : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-blue-600 text-white'
+                  : isToday(day)
+                    ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                    : isDisabled(day)
+                      ? 'text-gray-300 cursor-not-allowed'
+                      : 'text-gray-700 hover:bg-gray-100'
                   }`}
               >
                 {day}
@@ -167,7 +167,7 @@ const SnoozeDatePicker: React.FC<SnoozeDatePickerProps> = ({ onConfirm, onClose 
       const itemHeight = 40;
       minuteScrollRef.current.scrollTop = (selectedMinute / 5) * itemHeight - 80;
     }
-  }, []);
+  }, [selectedHour, selectedMinute]);
 
   const handleConfirm = () => {
     const finalDate = new Date(selectedDate);

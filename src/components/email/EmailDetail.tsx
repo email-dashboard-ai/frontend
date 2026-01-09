@@ -81,6 +81,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
     };
 
     fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMessage?.id]);
 
   const formatDate = (dateString: string) => {
@@ -155,7 +156,9 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
     );
   }, [selectedThreadMessages]);
 
-  const messagesToRender = sortedMessages.length > 0 ? sortedMessages : (selectedMessage ? [selectedMessage] : []);
+  const messagesToRender = React.useMemo(() => {
+    return sortedMessages.length > 0 ? sortedMessages : (selectedMessage ? [selectedMessage] : []);
+  }, [sortedMessages, selectedMessage]);
 
   console.log('EmailDetail Debug:', {
     selectedMessageId: selectedMessage?.id,

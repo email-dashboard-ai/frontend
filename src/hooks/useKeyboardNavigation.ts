@@ -37,7 +37,7 @@ export const useKeyboardNavigation = ({
         setState(prev => ({ ...prev, focusedIndex: index }));
       }
     }
-  }, [selectedMessage, messages]);
+  }, [selectedMessage, messages, state.focusedIndex]);
 
   // Check if user is typing in an input field
   const isTyping = useCallback(() => {
