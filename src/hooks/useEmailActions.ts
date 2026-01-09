@@ -78,7 +78,7 @@ export const useEmailActions = () => {
     try {
       await dispatch(batchDeleteEmailsAction(ids)).unwrap();
       toast.success(`${ids.length} emails moved to trash`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete emails');
     }
   }, [dispatch]);

@@ -23,7 +23,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   labels,
   kanbanStatuses,
   onMessageClick,
-  onToggleStar: _onToggleStar,
+  // onToggleStar, // Unused in this view logic currently
   onUpdateStatus,
   onSnooze,
   onLoadMore

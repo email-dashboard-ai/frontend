@@ -18,11 +18,9 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ email, name, size = "w-10 h-10"
     const { knownUsers } = useAppSelector(state => state.gmail);
 
     const [imgSrc, setImgSrc] = useState<string | null>(null);
-    const [loadError, setLoadError] = useState(false);
 
     // 1. Determine the best initial source
     useEffect(() => {
-        setLoadError(false);
         const cleanEmail = email.trim().toLowerCase();
 
         // A. Internal Profile (Logged in user or Known User)
@@ -60,8 +58,8 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ email, name, size = "w-10 h-10"
         }
     };
 
-    // Render Initials if no image or error
-    if (!imgSrc || loadError) {
+    // Render Initials if no image
+    if (!imgSrc) {
         const initial = name ? name[0].toUpperCase() : email[0].toUpperCase();
         // Generate a consistent pastel color based on email
         const colors = [

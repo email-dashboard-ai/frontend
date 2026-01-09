@@ -465,18 +465,20 @@ const EmailList: React.FC<EmailListProps> = ({
                   snoozeDate.setDate(snoozeDate.getDate() + 1);
                   snoozeDate.setHours(9, 0, 0, 0);
                   break;
-                case 'weekend':
+                case 'weekend': {
                   snoozeDate = new Date(now);
                   const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
                   snoozeDate.setDate(snoozeDate.getDate() + daysUntilSaturday);
                   snoozeDate.setHours(9, 0, 0, 0);
                   break;
-                case 'next-week':
+                }
+                case 'next-week': {
                   snoozeDate = new Date(now);
                   const daysUntilMonday = (1 - now.getDay() + 7) % 7 || 7;
                   snoozeDate.setDate(snoozeDate.getDate() + daysUntilMonday);
                   snoozeDate.setHours(9, 0, 0, 0);
                   break;
+                }
                 default:
                   return;
               }

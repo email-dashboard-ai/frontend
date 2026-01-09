@@ -9,7 +9,7 @@ interface SummaryModalProps {
   onView: () => void;
 }
 
-const SummaryModal: React.FC<SummaryModalProps> = ({ email, summary, onClose, onView: _onView }) => {
+const SummaryModal: React.FC<SummaryModalProps> = ({ email, summary, onClose }) => {
   if (!email) return null;
 
   const extractName = (emailString: string) => {
