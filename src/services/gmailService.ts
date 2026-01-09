@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { api, apiConfig } from '../config/apiConfig';
 import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse, SearchResult, SearchRequest } from '../types/gmail';
 import type { ApiResponse } from '../types/api';

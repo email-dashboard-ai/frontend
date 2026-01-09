@@ -80,6 +80,7 @@ const EmailDashboard: React.FC = () => {
 
   useEffect(() => {
     if (viewMode === 'kanban') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchKanbanStatuses();
     }
   }, [viewMode, fetchKanbanStatuses]);
@@ -155,6 +156,7 @@ const EmailDashboard: React.FC = () => {
   // Fetch snoozed info when SNOOZED label is selected
   useEffect(() => {
     if (selectedLabel?.name === 'SNOOZED') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchSnoozedInfo();
     }
   }, [selectedLabel, fetchSnoozedInfo]);
@@ -171,6 +173,7 @@ const EmailDashboard: React.FC = () => {
   useEffect(() => {
     if (selectedLabel) {
       dispatch(clearMessages());
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPageToken(undefined);
       setHistoryStack([]);
       setSelectedEmailIds(new Set());

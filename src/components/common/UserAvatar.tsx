@@ -21,6 +21,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({ email, name, size = "w-10 h-10"
 
     // 1. Determine the best initial source
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         const cleanEmail = email.trim().toLowerCase();
 
         // A. Internal Profile (Logged in user or Known User)

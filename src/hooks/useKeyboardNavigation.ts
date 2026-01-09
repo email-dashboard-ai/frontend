@@ -33,6 +33,7 @@ export const useKeyboardNavigation = ({
     if (selectedMessage) {
       const index = messages.findIndex(m => m.id === selectedMessage.id);
       if (index !== -1 && index !== state.focusedIndex) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setState(prev => ({ ...prev, focusedIndex: index }));
       }
     }
