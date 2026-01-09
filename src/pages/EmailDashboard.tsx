@@ -362,6 +362,7 @@ const EmailDashboard: React.FC = () => {
               onLabelClick={handleLabelClick}
               sidebarRef={sidebarRef}
               onCompose={() => setIsComposeOpen(true)}
+              onShowShortcuts={() => setShowShortcutsModal(true)}
             />
 
             <div
