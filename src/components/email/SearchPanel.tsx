@@ -16,6 +16,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
     const [isSearching, setIsSearching] = useState(false);
     const [searchRequest, setSearchRequest] = useState<SearchRequest>({});
     const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+    const [isFocused, setIsFocused] = useState(false);
     const filterRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -31,15 +32,16 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
             if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
                 setShowFilters(false);
                 setShowSuggestions(false);
+                setIsFocused(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Update suggestions when input changes
+    // Update suggestions when input changes (only if focused)
     useEffect(() => {
-        if (showFilters) {
+        if (!isFocused || showFilters) {
             setShowSuggestions(false);
             return;
         }
@@ -47,7 +49,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
         updateSuggestions(searchRequest.body || '');
         setShowSuggestions(true);
         setSelectedSuggestionIndex(-1);
-    }, [searchRequest.body, showFilters, updateSuggestions]);
+    }, [searchRequest.body, showFilters, updateSuggestions, isFocused]);
 
     const handleSearch = useCallback(async (overrideRequest?: SearchRequest) => {
         const requestToUse = overrideRequest || searchRequest;
@@ -190,6 +192,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                     onChange={(e) => updateField('body', e.target.value)}
                     onKeyDown={handleInputKeyDown}
                     onFocus={() => {
+                        setIsFocused(true);
                         if (!showFilters) {
                             // Show recent searches when focusing on empty or show current suggestions
                             if (!searchRequest.body || searchRequest.body.length === 0) {

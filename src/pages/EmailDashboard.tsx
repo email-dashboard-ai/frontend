@@ -22,10 +22,12 @@ import ComposeEmailModal from '../components/email/ComposeEmailModal';
 import KanbanView from '../components/email/KanbanView';
 import SearchPanel from '../components/email/SearchPanel';
 import SearchResults from '../components/email/SearchResults';
+import KeyboardShortcutsModal from '../components/email/KeyboardShortcutsModal';
 
 // Hooks
 import { useResizableLayout } from '../hooks/useResizableLayout';
 import { useEmailActions } from '../hooks/useEmailActions';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 
 const EmailDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -42,6 +44,7 @@ const EmailDashboard: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [kanbanStatuses, setKanbanStatuses] = useState<Record<string, string>>({});
   const [snoozedInfo, setSnoozedInfo] = useState<Record<string, string>>({});
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -85,6 +88,48 @@ const EmailDashboard: React.FC = () => {
   // Custom Hooks
   const { sidebarWidth, listWidth, startResizingSidebar, startResizingList } = useResizableLayout();
   const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleRestoreEmail, refreshMessages, handleBulkDelete, handleBulkMarkRead, handleSnoozeEmail } = useEmailActions();
+
+  // Keyboard Navigation Hook (List view only)
+  useKeyboardNavigation({
+    messages,
+    selectedMessage,
+    onSelectMessage: (message) => {
+      dispatch(setSelectedMessage(message));
+      // Mark as read when selecting via keyboard
+      if (message && !message.isRead) {
+        handleToggleRead(message.id, false);
+      }
+    },
+    onDeleteMessage: handleDeleteEmail,
+    onToggleStar: handleToggleStar,
+    onFocusSearch: () => {
+      const searchInput = document.querySelector('input[placeholder="Search mail"]') as HTMLInputElement;
+      searchInput?.focus();
+    },
+    enabled: viewMode === 'list' && !isSearchActive && !isComposeOpen && !showShortcutsModal,
+  });
+
+  // Listen for ? key to TOGGLE shortcuts modal, and Esc to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      const isTyping = active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA';
+
+      // ? to toggle modal
+      if (e.key === '?' && !isTyping) {
+        e.preventDefault();
+        setShowShortcutsModal(prev => !prev);
+      }
+
+      // Esc to close modal
+      if (e.key === 'Escape' && showShortcutsModal) {
+        e.preventDefault();
+        setShowShortcutsModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showShortcutsModal]);
 
   const handleUnsnoozeEmail = useCallback(async (emailId: string) => {
     try {
@@ -428,6 +473,12 @@ const EmailDashboard: React.FC = () => {
       <ComposeEmailModal
         isOpen={isComposeOpen}
         onClose={() => setIsComposeOpen(false)}
+      />
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
       />
     </div>
   );
