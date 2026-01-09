@@ -89,13 +89,15 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   }, [showDropdown]);
 
   // Get available labels in this column for filtering
+  // For Kanban workflow, only show IMPORTANT label as filter option
   const availableLabels = useMemo(() => {
     const labelIdsInColumn = new Set<string>();
     emails.forEach(e => e.labelIds?.forEach(id => labelIdsInColumn.add(id)));
 
+    // Only show IMPORTANT label for Kanban filtering
     return labels.filter(l =>
       labelIdsInColumn.has(l.id) &&
-      !['INBOX', 'SPAM', 'TRASH', 'UNREAD', 'STARRED', 'SENT', 'DRAFT'].includes(l.id)
+      l.id === 'IMPORTANT'
     );
   }, [emails, labels]);
 

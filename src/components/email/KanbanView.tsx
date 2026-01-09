@@ -15,6 +15,7 @@ interface KanbanViewProps {
   onToggleStar: (id: string, isStarred: boolean) => void;
   onUpdateStatus: (id: string, newStatus: 'inbox' | 'important' | 'done') => void;
   onSnooze?: (emailId: string, snoozedUntil: string) => void;
+  onLoadMore?: () => void;
 }
 
 const KanbanView: React.FC<KanbanViewProps> = ({
@@ -22,9 +23,10 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   labels,
   kanbanStatuses,
   onMessageClick,
-  onToggleStar: _onToggleStar,
+  // onToggleStar, // Unused in this view logic currently
   onUpdateStatus,
-  onSnooze
+  onSnooze,
+  onLoadMore
 }) => {
   // AI Summary State
   const [summariesById, setSummariesById] = useState<Record<string, string>>({});
@@ -101,13 +103,16 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   }, [messages, onUpdateStatus]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>, columnId: string) => {
+    if (columnId !== 'inbox' || !onLoadMore) return;
+
     const element = e.currentTarget;
-    const bottom = element.scrollHeight - element.scrollTop === element.clientHeight;
+    const bottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 100; // 100px threshold
 
     if (bottom) {
-      console.log(`Load more for ${columnId}`);
+      console.log(`Load more triggered for ${columnId}`);
+      onLoadMore();
     }
-  }, []);
+  }, [onLoadMore]);
 
   // Filter messages based on Backend Status (sorting/filtering now handled per-column)
   const inboxEmails = messages.filter(e => {

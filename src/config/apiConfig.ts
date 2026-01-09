@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * API Configuration Manager
  * Handles API communication with the production backend
@@ -26,7 +27,8 @@ export interface ApiConfig {
       toggleStar: (id: string) => string;
       delete: (id: string) => string;
       untrash: (id: string) => string;
-      archive: (id: string) => string;
+      moveToInbox: (id: string) => string;
+      permanentlyDelete: (id: string) => string;
       batchDelete: string;
       batchStatus: string;
       attachment: (messageId: string, attachmentId: string) => string;
@@ -76,7 +78,8 @@ class ApiConfigManager {
           toggleStar: (id: string) => `/api/gmail/${id}/star`,
           delete: (id: string) => `/api/gmail/${id}`,
           untrash: (id: string) => `/api/gmail/${id}/untrash`,
-          archive: (id: string) => `/api/gmail/${id}/archive`,
+          moveToInbox: (id: string) => `/api/gmail/${id}/move-to-inbox`,
+          permanentlyDelete: (id: string) => `/api/gmail/${id}/permanent`,
           batchDelete: "/api/gmail/batch/delete",
           batchStatus: "/api/gmail/batch/status",
           attachment: (messageId: string, attachmentId: string) => `/api/gmail/${messageId}/attachments/${attachmentId}`,

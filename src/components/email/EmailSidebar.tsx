@@ -1,6 +1,6 @@
 import React from 'react';
 import { GmailLabel } from '../../types/gmail';
-import { Inbox, Star, Send, FileText, Trash2, Folder, Loader2, Edit2, Clock } from 'lucide-react';
+import { Inbox, Star, Send, FileText, Trash2, Folder, Loader2, Edit2, Clock, Keyboard } from 'lucide-react';
 
 interface EmailSidebarProps {
   sidebarWidth: number;
@@ -11,6 +11,7 @@ interface EmailSidebarProps {
   onLabelClick: (label: GmailLabel) => void;
   sidebarRef: React.RefObject<HTMLDivElement | null>;
   onCompose: () => void;
+  onShowShortcuts?: () => void;
 }
 
 const EmailSidebar: React.FC<EmailSidebarProps> = ({
@@ -21,7 +22,8 @@ const EmailSidebar: React.FC<EmailSidebarProps> = ({
   isLoading,
   onLabelClick,
   sidebarRef,
-  onCompose
+  onCompose,
+  onShowShortcuts
 }) => {
   const getLabelIcon = (label: GmailLabel) => {
     const iconsByName: Record<string, React.ReactNode> = {
@@ -100,6 +102,19 @@ const EmailSidebar: React.FC<EmailSidebarProps> = ({
           ))
         )}
       </nav>
+
+      {onShowShortcuts && (
+        <div className="p-3 mt-auto border-t border-gray-100">
+          <button
+            onClick={onShowShortcuts}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+            title="Press '?' to show shortcuts"
+          >
+            <Keyboard size={18} />
+            <span className="truncate">Keyboard shortcuts</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 };

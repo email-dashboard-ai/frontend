@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../store';
 import {
   fetchLabels,
   fetchMessages,
+  fetchMoreMessages,
   setSelectedLabel,
   setSelectedMessage,
   clearMessages
@@ -22,10 +23,12 @@ import ComposeEmailModal from '../components/email/ComposeEmailModal';
 import KanbanView from '../components/email/KanbanView';
 import SearchPanel from '../components/email/SearchPanel';
 import SearchResults from '../components/email/SearchResults';
+import KeyboardShortcutsModal from '../components/email/KeyboardShortcutsModal';
 
 // Hooks
 import { useResizableLayout } from '../hooks/useResizableLayout';
 import { useEmailActions } from '../hooks/useEmailActions';
+import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 
 const EmailDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -42,6 +45,7 @@ const EmailDashboard: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [kanbanStatuses, setKanbanStatuses] = useState<Record<string, string>>({});
   const [snoozedInfo, setSnoozedInfo] = useState<Record<string, string>>({});
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -76,6 +80,7 @@ const EmailDashboard: React.FC = () => {
 
   useEffect(() => {
     if (viewMode === 'kanban') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchKanbanStatuses();
     }
   }, [viewMode, fetchKanbanStatuses]);
@@ -84,7 +89,49 @@ const EmailDashboard: React.FC = () => {
 
   // Custom Hooks
   const { sidebarWidth, listWidth, startResizingSidebar, startResizingList } = useResizableLayout();
-  const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleRestoreEmail, refreshMessages, handleBulkDelete, handleBulkMarkRead, handleSnoozeEmail } = useEmailActions();
+  const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleMoveToInbox, handlePermanentlyDelete, refreshMessages, handleBulkDelete, handleBulkMarkRead, handleSnoozeEmail } = useEmailActions();
+
+  // Keyboard Navigation Hook (List view only)
+  useKeyboardNavigation({
+    messages,
+    selectedMessage,
+    onSelectMessage: (message) => {
+      dispatch(setSelectedMessage(message));
+      // Mark as read when selecting via keyboard
+      if (message && !message.isRead) {
+        handleToggleRead(message.id, false);
+      }
+    },
+    onDeleteMessage: handleDeleteEmail,
+    onToggleStar: handleToggleStar,
+    onFocusSearch: () => {
+      const searchInput = document.querySelector('input[placeholder="Search mail"]') as HTMLInputElement;
+      searchInput?.focus();
+    },
+    enabled: viewMode === 'list' && !isSearchActive && !isComposeOpen && !showShortcutsModal,
+  });
+
+  // Listen for ? key to TOGGLE shortcuts modal, and Esc to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement;
+      const isTyping = active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA';
+
+      // ? to toggle modal
+      if (e.key === '?' && !isTyping) {
+        e.preventDefault();
+        setShowShortcutsModal(prev => !prev);
+      }
+
+      // Esc to close modal
+      if (e.key === 'Escape' && showShortcutsModal) {
+        e.preventDefault();
+        setShowShortcutsModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showShortcutsModal]);
 
   const handleUnsnoozeEmail = useCallback(async (emailId: string) => {
     try {
@@ -109,6 +156,7 @@ const EmailDashboard: React.FC = () => {
   // Fetch snoozed info when SNOOZED label is selected
   useEffect(() => {
     if (selectedLabel?.name === 'SNOOZED') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchSnoozedInfo();
     }
   }, [selectedLabel, fetchSnoozedInfo]);
@@ -125,6 +173,7 @@ const EmailDashboard: React.FC = () => {
   useEffect(() => {
     if (selectedLabel) {
       dispatch(clearMessages());
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPageToken(undefined);
       setHistoryStack([]);
       setSelectedEmailIds(new Set());
@@ -161,6 +210,14 @@ const EmailDashboard: React.FC = () => {
       dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: prevToken === '' ? undefined : prevToken }));
     }
   };
+
+  const handleLoadMore = useCallback(() => {
+    if (nextPageToken && selectedLabel && !isLoading) {
+      // Don't modify pageToken state directly as it affects list pagination
+      // Just fetch more messages to append
+      dispatch(fetchMoreMessages({ labelId: selectedLabel.id, pageToken: nextPageToken }));
+    }
+  }, [nextPageToken, selectedLabel, isLoading, dispatch]);
 
   const handleLabelClick = (label: GmailLabel) => {
     dispatch(setSelectedLabel(label));
@@ -308,6 +365,7 @@ const EmailDashboard: React.FC = () => {
               onLabelClick={handleLabelClick}
               sidebarRef={sidebarRef}
               onCompose={() => setIsComposeOpen(true)}
+              onShowShortcuts={() => setShowShortcutsModal(true)}
             />
 
             <div
@@ -368,6 +426,16 @@ const EmailDashboard: React.FC = () => {
                 }}
                 snoozedInfo={snoozedInfo}
                 onUnsnooze={handleUnsnoozeEmail}
+                onMoveToInbox={(emailId) => {
+                  if (selectedLabel) {
+                    handleMoveToInbox(emailId, selectedLabel.id);
+                  }
+                }}
+                onPermanentlyDelete={(emailId) => {
+                  if (selectedLabel) {
+                    handlePermanentlyDelete(emailId, selectedLabel.id);
+                  }
+                }}
               />
             )}
 
@@ -385,7 +453,16 @@ const EmailDashboard: React.FC = () => {
               onToggleStar={handleToggleStar}
               onToggleRead={handleToggleRead}
               onDelete={handleDeleteEmail}
-              onRestore={handleRestoreEmail}
+              onMoveToInbox={(emailId) => {
+                if (selectedLabel) {
+                  handleMoveToInbox(emailId, selectedLabel.id);
+                }
+              }}
+              onPermanentlyDelete={(emailId) => {
+                if (selectedLabel) {
+                  handlePermanentlyDelete(emailId, selectedLabel.id);
+                }
+              }}
             />
           </>
         ) : (
@@ -400,7 +477,16 @@ const EmailDashboard: React.FC = () => {
                 onToggleStar={handleToggleStar}
                 onToggleRead={handleToggleRead}
                 onDelete={handleDeleteEmail}
-                onRestore={handleRestoreEmail}
+                onMoveToInbox={(emailId) => {
+                  if (selectedLabel) {
+                    handleMoveToInbox(emailId, selectedLabel.id);
+                  }
+                }}
+                onPermanentlyDelete={(emailId) => {
+                  if (selectedLabel) {
+                    handlePermanentlyDelete(emailId, selectedLabel.id);
+                  }
+                }}
                 onBack={handleBackToKanban}
               />
             ) : (
@@ -417,6 +503,7 @@ const EmailDashboard: React.FC = () => {
                       handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
                     }
                   }}
+                  onLoadMore={handleLoadMore}
                 />
               </div>
             )}
@@ -428,6 +515,12 @@ const EmailDashboard: React.FC = () => {
       <ComposeEmailModal
         isOpen={isComposeOpen}
         onClose={() => setIsComposeOpen(false)}
+      />
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
       />
     </div>
   );

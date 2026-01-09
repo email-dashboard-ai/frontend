@@ -12,7 +12,7 @@ interface SnoozeModalProps {
 const SnoozeModal: React.FC<SnoozeModalProps> = ({ email, onSnooze, onCustom, onClose }) => {
   const calculateSnoozeDate = (option: string): Date => {
     const now = new Date();
-    let snoozeDate = new Date(now);
+    const snoozeDate = new Date(now);
 
     switch (option) {
       case 'later-today':
@@ -23,16 +23,18 @@ const SnoozeModal: React.FC<SnoozeModalProps> = ({ email, onSnooze, onCustom, on
         snoozeDate.setDate(snoozeDate.getDate() + 1);
         snoozeDate.setHours(9, 0, 0, 0);
         break;
-      case 'weekend':
+      case 'weekend': {
         const daysUntilSaturday = (6 - now.getDay() + 7) % 7 || 7;
         snoozeDate.setDate(snoozeDate.getDate() + daysUntilSaturday);
         snoozeDate.setHours(9, 0, 0, 0);
         break;
-      case 'next-week':
+      }
+      case 'next-week': {
         const daysUntilMonday = (1 - now.getDay() + 7) % 7 || 7;
         snoozeDate.setDate(snoozeDate.getDate() + daysUntilMonday);
         snoozeDate.setHours(9, 0, 0, 0);
         break;
+      }
     }
     return snoozeDate;
   };

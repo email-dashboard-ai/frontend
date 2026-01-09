@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Search, Filter, X, Calendar, Paperclip, Mail, Star, AlertCircle, Loader2 } from 'lucide-react';
+import { Search, Filter, X, Calendar, Paperclip, Mail, Star, AlertCircle, Loader2, User, Hash, Clock } from 'lucide-react';
 import { gmailService } from '../../services/gmailService';
 import type { SearchRequest, SearchResult } from '../../types/gmail';
+import { useSearchSuggestions, SearchSuggestion } from '../../hooks/useSearchSuggestions';
 
 interface SearchPanelProps {
     onSearchResults: (results: SearchResult[]) => void;
@@ -11,28 +12,61 @@ interface SearchPanelProps {
 
 const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearch, isSearchActive }) => {
     const [showFilters, setShowFilters] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [searchRequest, setSearchRequest] = useState<SearchRequest>({});
+    const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+    const [isFocused, setIsFocused] = useState(false);
     const filterRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const suggestionsRef = useRef<HTMLDivElement>(null);
 
-    // Close filter panel when clicking outside
+    const { suggestions, updateSuggestions, clearSuggestions, saveRecentSearch, showRecentOnFocus } = useSearchSuggestions({
+        maxSuggestions: 5,
+        debounceMs: 150,
+    });
+
+    // Close dropdowns when clicking outside
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
                 setShowFilters(false);
+                setShowSuggestions(false);
+                setIsFocused(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSearch = useCallback(async () => {
-        const hasValue = Object.values(searchRequest).some(v => v !== undefined && v !== '' && v !== false);
+    // Update suggestions when input changes (only if focused)
+    useEffect(() => {
+        if (!isFocused || showFilters) {
+            setShowSuggestions(false);
+            return;
+        }
+        // Let updateSuggestions handle the logic for empty, 1 char, or 2+ chars
+        updateSuggestions(searchRequest.body || '');
+        setShowSuggestions(true);
+        setSelectedSuggestionIndex(-1);
+    }, [searchRequest.body, showFilters, updateSuggestions, isFocused]);
+
+    const handleSearch = useCallback(async (overrideRequest?: SearchRequest) => {
+        const requestToUse = overrideRequest || searchRequest;
+        const hasValue = Object.values(requestToUse).some(v => v !== undefined && v !== '' && v !== false);
         if (!hasValue) return;
 
         setIsSearching(true);
+        setShowSuggestions(false);
+        clearSuggestions();
+
+        // Save search term to recent searches
+        if (requestToUse.body) {
+            saveRecentSearch(requestToUse.body);
+        }
+
         try {
-            const results = await gmailService.search(searchRequest);
+            const results = await gmailService.search(requestToUse);
             onSearchResults(results);
             setShowFilters(false);
         } catch (error) {
@@ -40,12 +74,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
         } finally {
             setIsSearching(false);
         }
-    }, [searchRequest, onSearchResults]);
+    }, [searchRequest, onSearchResults, clearSuggestions, saveRecentSearch]);
 
     const handleClear = useCallback(() => {
         setSearchRequest({});
+        clearSuggestions();
+        setShowSuggestions(false);
         onClearSearch();
-    }, [onClearSearch]);
+    }, [onClearSearch, clearSuggestions]);
 
     const updateField = (field: keyof SearchRequest, value: string | boolean | undefined) => {
         setSearchRequest(prev => ({
@@ -54,20 +90,90 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
         }));
     };
 
+    // Handle suggestion selection
+    const handleSuggestionClick = useCallback((suggestion: SearchSuggestion) => {
+        let newRequest: SearchRequest;
+
+        if (suggestion.type === 'contact') {
+            // Search by sender email
+            newRequest = { from: suggestion.value };
+        } else {
+            // Search by keyword in body
+            newRequest = { body: suggestion.value };
+        }
+
+        setSearchRequest(newRequest);
+        setShowSuggestions(false);
+        clearSuggestions();
+
+        // Trigger search immediately
+        handleSearch(newRequest);
+    }, [handleSearch, clearSuggestions]);
+
+    // Handle keyboard navigation in suggestions
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!showSuggestions || suggestions.length === 0) {
+            if (e.key === 'Enter' && !isSearching) {
+                handleSearch();
+            }
+            return;
+        }
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                setSelectedSuggestionIndex(prev =>
+                    prev < suggestions.length - 1 ? prev + 1 : 0
+                );
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setSelectedSuggestionIndex(prev =>
+                    prev > 0 ? prev - 1 : suggestions.length - 1
+                );
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length) {
+                    handleSuggestionClick(suggestions[selectedSuggestionIndex]);
+                } else if (!isSearching) {
+                    handleSearch();
+                }
+                break;
+            case 'Escape':
+                setShowSuggestions(false);
+                clearSuggestions();
+                break;
+        }
+    };
+
     const activeFiltersCount = Object.entries(searchRequest)
         .filter(([key, value]) => key !== 'body' && value !== undefined && value !== '' && value !== false)
         .length;
+
+    const getSuggestionIcon = (type: SearchSuggestion['type']) => {
+        switch (type) {
+            case 'recent':
+                return <Clock size={14} className="text-amber-500" />;
+            case 'contact':
+                return <User size={14} className="text-blue-500" />;
+            case 'keyword':
+                return <Hash size={14} className="text-green-500" />;
+            default:
+                return <Search size={14} className="text-gray-400" />;
+        }
+    };
 
     return (
         <div className="relative w-full max-w-[720px] group" ref={filterRef}>
             <div className={`
                 flex items-center w-full transition-all duration-200 ease-in-out
-                ${showFilters ? 'bg-white shadow-lg rounded-t-[28px] rounded-b-none border-b-0' : 'bg-[#EAF1FB] hover:bg-white hover:shadow-md rounded-full'}
+                ${showFilters || showSuggestions ? 'bg-white shadow-lg rounded-t-[28px] rounded-b-none border-b-0' : 'bg-[#EAF1FB] hover:bg-white hover:shadow-md rounded-full'}
                 focus-within:bg-white focus-within:shadow-md
                 h-12 px-2
             `}>
                 <button
-                    onClick={handleSearch}
+                    onClick={() => handleSearch()}
                     disabled={isSearching}
                     className="p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors disabled:cursor-not-allowed"
                 >
@@ -79,13 +185,25 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                 </button>
 
                 <input
+                    ref={inputRef}
                     type="text"
                     placeholder="Search mail"
                     value={searchRequest.body || ''}
                     onChange={(e) => updateField('body', e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && !isSearching && handleSearch()}
+                    onKeyDown={handleInputKeyDown}
+                    onFocus={() => {
+                        setIsFocused(true);
+                        if (!showFilters) {
+                            // Show recent searches when focusing on empty or show current suggestions
+                            if (!searchRequest.body || searchRequest.body.length === 0) {
+                                showRecentOnFocus();
+                            }
+                            setShowSuggestions(true);
+                        }
+                    }}
                     disabled={isSearching}
                     className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-gray-800 placeholder-gray-500 text-base px-2 h-full w-full disabled:cursor-not-allowed"
+                    autoComplete="off"
                 />
 
                 {/* Clear Button */}
@@ -101,7 +219,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
 
                 {/* Filter Toggle */}
                 <button
-                    onClick={() => setShowFilters(!showFilters)}
+                    onClick={() => {
+                        setShowFilters(!showFilters);
+                        setShowSuggestions(false);
+                    }}
                     className={`p-2 rounded-full transition-colors relative mr-1 ${showFilters || activeFiltersCount > 0
                         ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-500 hover:bg-gray-200'
@@ -116,6 +237,50 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                     )}
                 </button>
             </div>
+
+            {/* Suggestions Dropdown */}
+            {showSuggestions && suggestions.length > 0 && !showFilters && (
+                <div
+                    ref={suggestionsRef}
+                    className="absolute top-full left-0 right-0 bg-white shadow-xl rounded-b-[28px] border-t border-gray-100 py-2 z-50 animate-in fade-in slide-in-from-top-1 duration-150"
+                >
+                    {suggestions.map((suggestion, index) => (
+                        <button
+                            key={suggestion.id}
+                            onClick={() => handleSuggestionClick(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                            className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors ${index === selectedSuggestionIndex
+                                ? 'bg-blue-50'
+                                : 'hover:bg-gray-50'
+                                }`}
+                        >
+                            <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                {getSuggestionIcon(suggestion.type)}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                    {suggestion.displayText}
+                                </div>
+                                {suggestion.secondaryText && (
+                                    <div className="text-xs text-gray-500 truncate">
+                                        {suggestion.secondaryText}
+                                    </div>
+                                )}
+                            </div>
+                            <span className="flex-shrink-0 text-xs text-gray-400 capitalize">
+                                {suggestion.type}
+                            </span>
+                        </button>
+                    ))}
+                    <div className="px-4 py-2 border-t border-gray-100 mt-1">
+                        <span className="text-xs text-gray-400">
+                            Press <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 font-mono">↑</kbd>{' '}
+                            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 font-mono">↓</kbd> to navigate,{' '}
+                            <kbd className="px-1.5 py-0.5 bg-gray-100 rounded text-gray-600 font-mono">Enter</kbd> to select
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* Expanded Filter Panel */}
             {showFilters && (
@@ -274,7 +439,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                             Reset filters
                         </button>
                         <button
-                            onClick={handleSearch}
+                            onClick={() => handleSearch()}
                             disabled={isSearching}
                             className={`px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center gap-2 ${isSearching ? 'opacity-70 cursor-not-allowed' : ''}`}
                         >

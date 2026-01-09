@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useRef } from 'react';
 import { X, Paperclip, Bold, Italic, Underline, Send, Loader2, Link2, Image, AlignLeft, AlignCenter, AlignRight, List, ListOrdered, Indent, Outdent, Type } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -38,7 +39,7 @@ const EmailComposer: React.FC<EmailComposerProps> = ({
   const [isSending, setIsSending] = useState<boolean>(false);
   const [showFontSize, setShowFontSize] = useState<boolean>(false);
   const [showTextColor, setShowTextColor] = useState<boolean>(false);
-  
+
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);

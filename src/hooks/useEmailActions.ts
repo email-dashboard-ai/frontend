@@ -12,7 +12,6 @@ import {
 } from '../store/slices/gmailSlice';
 import { gmailService } from '../services/gmailService';
 import toast from 'react-hot-toast';
-import React from 'react';
 
 export const useEmailActions = () => {
   const dispatch = useAppDispatch();
@@ -33,22 +32,7 @@ export const useEmailActions = () => {
     dispatch(deleteEmailAction(messageId))
       .unwrap()
       .then(() => {
-        toast.success(
-          (t) => (
-            React.createElement('div', { className: 'flex items-center gap-3' },
-              React.createElement('span', null, 'Email moved to trash'),
-              React.createElement('button', {
-                onClick: () => {
-                  dispatch(untrashEmailAction(messageId));
-                  toast.dismiss(t.id);
-                  toast.success('Email restored');
-                },
-                className: 'px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium'
-              }, 'Undo')
-            )
-          ),
-          { duration: 5000 }
-        );
+        toast.success('Email moved to trash');
       })
       .catch(() => {
         toast.error('Failed to delete email');
@@ -58,8 +42,32 @@ export const useEmailActions = () => {
   const handleRestoreEmail = useCallback((messageId: string) => {
     dispatch(untrashEmailAction(messageId))
       .unwrap()
-      .then(() => toast.success('Email restored to Inbox'))
+      .then(() => toast.success('Email restored'))
       .catch(() => toast.error('Failed to restore email'));
+  }, [dispatch]);
+
+  const handleMoveToInbox = useCallback(async (messageId: string, labelId: string) => {
+    try {
+      await gmailService.moveToInbox(messageId);
+      toast.success('Email moved to Inbox');
+      // Refresh the current label to update the list
+      dispatch(fetchMessages({ labelId }));
+    } catch (error) {
+      toast.error('Failed to move email to Inbox');
+      console.error('Move to inbox error:', error);
+    }
+  }, [dispatch]);
+
+  const handlePermanentlyDelete = useCallback(async (messageId: string, labelId: string) => {
+    try {
+      await gmailService.permanentlyDelete(messageId);
+      toast.success('Email permanently deleted');
+      // Refresh the current label to update the list
+      dispatch(fetchMessages({ labelId }));
+    } catch (error) {
+      toast.error('Failed to permanently delete email');
+      console.error('Permanently delete error:', error);
+    }
   }, [dispatch]);
 
   const refreshMessages = useCallback((labelId: string) => {
@@ -70,7 +78,7 @@ export const useEmailActions = () => {
     try {
       await dispatch(batchDeleteEmailsAction(ids)).unwrap();
       toast.success(`${ids.length} emails moved to trash`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to delete emails');
     }
   }, [dispatch]);
@@ -100,6 +108,8 @@ export const useEmailActions = () => {
     handleToggleStar,
     handleDeleteEmail,
     handleRestoreEmail,
+    handleMoveToInbox,
+    handlePermanentlyDelete,
     refreshMessages,
     handleBulkDelete,
     handleBulkMarkRead,

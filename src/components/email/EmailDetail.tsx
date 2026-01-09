@@ -2,7 +2,7 @@ import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { gmailService } from '../../services/gmailService';
 import { aiService } from '../../services/aiService';
-import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles } from 'lucide-react';
+import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles, Inbox, AlertTriangle } from 'lucide-react';
 import ReplyComposer from './ReplyComposer';
 
 import { useAppDispatch, useAppSelector } from '../../store';
@@ -18,7 +18,8 @@ interface EmailDetailProps {
   onToggleStar: (id: string, isStarred: boolean) => void;
   onToggleRead: (id: string, isRead: boolean) => void;
   onDelete: (id: string) => void;
-  onRestore: (id: string) => void;
+  onMoveToInbox?: (id: string) => void;
+  onPermanentlyDelete?: (id: string) => void;
   onBack?: () => void; // Optional custom back handler
 }
 
@@ -31,12 +32,18 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   onToggleStar,
   onToggleRead,
   onDelete,
-  onRestore,
+  onMoveToInbox,
+  onPermanentlyDelete,
   onBack
 }) => {
   const dispatch = useAppDispatch();
   const { knownUsers } = useAppSelector(state => state.gmail);
   const isInTrash = selectedLabel?.id === 'TRASH';
+  const isInSpam = selectedLabel?.id === 'SPAM';
+  const isInSent = selectedLabel?.id === 'SENT';
+  const isInDraft = selectedLabel?.id === 'DRAFT';
+  // Hide star in Trash, Spam, Sent, Draft
+  const showStarButton = !isInTrash && !isInSpam && !isInSent && !isInDraft;
   const [showReply, setShowReply] = React.useState(false);
   const [replyAll, setReplyAll] = React.useState(false);
 
@@ -74,6 +81,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
     };
 
     fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMessage?.id]);
 
   const formatDate = (dateString: string) => {
@@ -148,7 +156,9 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
     );
   }, [selectedThreadMessages]);
 
-  const messagesToRender = sortedMessages.length > 0 ? sortedMessages : (selectedMessage ? [selectedMessage] : []);
+  const messagesToRender = React.useMemo(() => {
+    return sortedMessages.length > 0 ? sortedMessages : (selectedMessage ? [selectedMessage] : []);
+  }, [sortedMessages, selectedMessage]);
 
   console.log('EmailDetail Debug:', {
     selectedMessageId: selectedMessage?.id,
@@ -203,13 +213,15 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
         <div className="flex items-start justify-between gap-4 mb-4">
           <h1 className="text-xl font-bold text-gray-900 leading-tight">{selectedMessage.subject}</h1>
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              onClick={() => onToggleStar(selectedMessage.id, selectedMessage.isStarred)}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              title={selectedMessage.isStarred ? 'Remove star' : 'Add star'}
-            >
-              <Star size={20} className={selectedMessage.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
-            </button>
+            {showStarButton && (
+              <button
+                onClick={() => onToggleStar(selectedMessage.id, selectedMessage.isStarred)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title={selectedMessage.isStarred ? 'Remove star' : 'Add star'}
+              >
+                <Star size={20} className={selectedMessage.isStarred ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400'} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -233,28 +245,42 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
         {/* Thread Participants Summary (Optional, using first message for now) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
           {/* Actions for the thread or main message */}
-          {!isInTrash && (
+          {(isInTrash || isInSpam) ? (
+            <>
+              {/* Move to Inbox for Trash/Spam */}
+              {onMoveToInbox && (
+                <button
+                  onClick={() => onMoveToInbox(selectedMessage.id)}
+                  className="p-2 hover:bg-green-50 text-gray-400 hover:text-green-600 rounded-lg transition-colors ml-auto"
+                  title={isInSpam ? 'Not Spam' : 'Move to Inbox'}
+                >
+                  <Inbox size={18} />
+                </button>
+              )}
+              {/* Delete Forever */}
+              {onPermanentlyDelete && (
+                <button
+                  onClick={() => onPermanentlyDelete(selectedMessage.id)}
+                  className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors"
+                  title="Delete Forever"
+                >
+                  <AlertTriangle size={18} />
+                </button>
+              )}
+            </>
+          ) : (
             <button
               onClick={() => onDelete(selectedMessage.id)}
               className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors ml-auto"
-              title="Delete Thread"
+              title="Delete"
             >
               <Trash2 size={18} />
-            </button>
-          )}
-          {isInTrash && (
-            <button
-              onClick={() => onRestore(selectedMessage.id)}
-              className="p-2 hover:bg-gray-50 text-gray-400 hover:text-blue-600 rounded-lg transition-colors ml-auto"
-              title="Restore from Trash"
-            >
-              <MailOpen size={18} />
             </button>
           )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar relative bg-gray-50">
+      <div className="flex-1 overflow-y-scroll custom-scrollbar relative bg-gray-50">
         {isLoading && (
           <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
             <Loader2 className="animate-spin text-blue-600" size={32} />
@@ -295,7 +321,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
               {/* Message Body */}
               <div className="p-6" ref={emailBodyRef}>
                 <div
-                  className="prose prose-sm max-w-none text-gray-800 font-sans"
+                  className="prose prose-sm max-w-none text-gray-800 font-sans break-words overflow-hidden [&>img]:max-w-full [&>img]:h-auto"
                   dangerouslySetInnerHTML={{ __html: msg.body }}
                 />
               </div>
