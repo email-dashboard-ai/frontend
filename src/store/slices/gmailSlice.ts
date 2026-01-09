@@ -51,6 +51,18 @@ export const fetchMessages = createAsyncThunk(
   }
 );
 
+// For infinite scroll - appends messages instead of replacing
+export const fetchMoreMessages = createAsyncThunk(
+  'gmail/fetchMoreMessages',
+  async ({ labelId, pageToken, limit = appConfig.gmail.defaultPageLimit }: { labelId: string; pageToken: string; limit?: number }, { rejectWithValue, signal }) => {
+    try {
+      return await gmailService.getMessages(labelId, pageToken, limit, signal);
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to fetch more messages');
+    }
+  }
+);
+
 export const fetchMessage = createAsyncThunk(
   'gmail/fetchMessage',
   async (messageId: string, { rejectWithValue, signal }) => {
@@ -213,6 +225,23 @@ const gmailSlice = createSlice({
         state.nextPageToken = action.payload.nextPageToken;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Fetch MORE messages (infinite scroll - APPEND)
+      .addCase(fetchMoreMessages.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchMoreMessages.fulfilled, (state, action) => {
+        state.isLoading = false;
+        // APPEND new messages to existing list (avoid duplicates)
+        const existingIds = new Set(state.messages.map(m => m.id));
+        const newMessages = action.payload.messages.filter(m => !existingIds.has(m.id));
+        state.messages = [...state.messages, ...newMessages];
+        state.nextPageToken = action.payload.nextPageToken;
+      })
+      .addCase(fetchMoreMessages.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })

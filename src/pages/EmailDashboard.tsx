@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../store';
 import {
   fetchLabels,
   fetchMessages,
+  fetchMoreMessages,
   setSelectedLabel,
   setSelectedMessage,
   clearMessages
@@ -87,7 +88,7 @@ const EmailDashboard: React.FC = () => {
 
   // Custom Hooks
   const { sidebarWidth, listWidth, startResizingSidebar, startResizingList } = useResizableLayout();
-  const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleRestoreEmail, refreshMessages, handleBulkDelete, handleBulkMarkRead, handleSnoozeEmail } = useEmailActions();
+  const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleMoveToInbox, handlePermanentlyDelete, refreshMessages, handleBulkDelete, handleBulkMarkRead, handleSnoozeEmail } = useEmailActions();
 
   // Keyboard Navigation Hook (List view only)
   useKeyboardNavigation({
@@ -206,6 +207,14 @@ const EmailDashboard: React.FC = () => {
       dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: prevToken === '' ? undefined : prevToken }));
     }
   };
+
+  const handleLoadMore = useCallback(() => {
+    if (nextPageToken && selectedLabel && !isLoading) {
+      // Don't modify pageToken state directly as it affects list pagination
+      // Just fetch more messages to append
+      dispatch(fetchMoreMessages({ labelId: selectedLabel.id, pageToken: nextPageToken }));
+    }
+  }, [nextPageToken, selectedLabel, isLoading, dispatch]);
 
   const handleLabelClick = (label: GmailLabel) => {
     dispatch(setSelectedLabel(label));
@@ -413,6 +422,16 @@ const EmailDashboard: React.FC = () => {
                 }}
                 snoozedInfo={snoozedInfo}
                 onUnsnooze={handleUnsnoozeEmail}
+                onMoveToInbox={(emailId) => {
+                  if (selectedLabel) {
+                    handleMoveToInbox(emailId, selectedLabel.id);
+                  }
+                }}
+                onPermanentlyDelete={(emailId) => {
+                  if (selectedLabel) {
+                    handlePermanentlyDelete(emailId, selectedLabel.id);
+                  }
+                }}
               />
             )}
 
@@ -430,7 +449,16 @@ const EmailDashboard: React.FC = () => {
               onToggleStar={handleToggleStar}
               onToggleRead={handleToggleRead}
               onDelete={handleDeleteEmail}
-              onRestore={handleRestoreEmail}
+              onMoveToInbox={(emailId) => {
+                if (selectedLabel) {
+                  handleMoveToInbox(emailId, selectedLabel.id);
+                }
+              }}
+              onPermanentlyDelete={(emailId) => {
+                if (selectedLabel) {
+                  handlePermanentlyDelete(emailId, selectedLabel.id);
+                }
+              }}
             />
           </>
         ) : (
@@ -445,7 +473,16 @@ const EmailDashboard: React.FC = () => {
                 onToggleStar={handleToggleStar}
                 onToggleRead={handleToggleRead}
                 onDelete={handleDeleteEmail}
-                onRestore={handleRestoreEmail}
+                onMoveToInbox={(emailId) => {
+                  if (selectedLabel) {
+                    handleMoveToInbox(emailId, selectedLabel.id);
+                  }
+                }}
+                onPermanentlyDelete={(emailId) => {
+                  if (selectedLabel) {
+                    handlePermanentlyDelete(emailId, selectedLabel.id);
+                  }
+                }}
                 onBack={handleBackToKanban}
               />
             ) : (
@@ -462,6 +499,7 @@ const EmailDashboard: React.FC = () => {
                       handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
                     }
                   }}
+                  onLoadMore={handleLoadMore}
                 />
               </div>
             )}

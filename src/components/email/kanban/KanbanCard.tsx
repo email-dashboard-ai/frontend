@@ -111,11 +111,11 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
   const getVisibleLabels = () => {
     if (!email.labelIds || !allLabels) return [];
 
+    // Only show IMPORTANT label in Kanban cards
+    // Hide all CATEGORY_* labels and other system labels
     return email.labelIds
       .map(id => allLabels.find(l => l.id === id))
-      .filter((l): l is GmailLabel => !!l &&
-        !['INBOX', 'SPAM', 'TRASH', 'UNREAD', 'STARRED', 'SENT', 'DRAFT'].includes(l.id)
-      );
+      .filter((l): l is GmailLabel => !!l && l.id === 'IMPORTANT');
   };
 
   const visibleLabels = getVisibleLabels();
