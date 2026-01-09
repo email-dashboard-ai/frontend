@@ -192,9 +192,14 @@ class GmailService {
     });
   }
 
-  async archiveEmail(messageId: string): Promise<void> {
+  async moveToInbox(messageId: string): Promise<void> {
     const config = apiConfig.getConfig();
-    await api.post(config.endpoints.gmail.archive(messageId));
+    await api.post(config.endpoints.gmail.moveToInbox(messageId));
+  }
+
+  async permanentlyDelete(messageId: string): Promise<void> {
+    const config = apiConfig.getConfig();
+    await api.delete(config.endpoints.gmail.permanentlyDelete(messageId));
   }
 
   async downloadAttachment(messageId: string, attachmentId: string, filename: string): Promise<void> {
