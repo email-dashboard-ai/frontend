@@ -167,9 +167,6 @@ const EmailDashboard: React.FC = () => {
       const message = messages.find(m => m.id === emailId);
       if (message && (!selectedMessage || selectedMessage.id !== emailId)) {
         dispatch(setSelectedMessage(message));
-        if (isMobile) {
-          setIsMobileDetailView(true);
-        }
         // Mark as read if unread
         if (!message.isRead) {
           handleToggleRead(message.id, false);
@@ -393,7 +390,7 @@ const EmailDashboard: React.FC = () => {
           <>
             <EmailSidebar
               sidebarWidth={sidebarWidth}
-              isMobileDetailView={isMobileDetailView}
+              isMobileDetailView={isMobile && (isMobileDetailView || !!selectedMessage)}
               labels={labels}
               selectedLabel={selectedLabel}
               isLoading={isLoading}
@@ -480,7 +477,7 @@ const EmailDashboard: React.FC = () => {
             />
 
             <EmailDetail
-              isMobileDetailView={isMobileDetailView}
+              isMobileDetailView={isMobile && (isMobileDetailView || !!selectedMessage)}
               setIsMobileDetailView={setIsMobileDetailView}
               selectedMessage={selectedMessage}
               isLoading={isLoading}
@@ -502,7 +499,7 @@ const EmailDashboard: React.FC = () => {
           </>
         ) : (
           <>
-            {isMobile && isMobileDetailView && selectedMessage ? (
+            {isMobile && (isMobileDetailView || !!selectedMessage) && selectedMessage ? (
               <EmailDetail
                 isMobileDetailView={isMobileDetailView}
                 setIsMobileDetailView={setIsMobileDetailView}

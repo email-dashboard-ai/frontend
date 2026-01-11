@@ -1,4 +1,5 @@
 import { ParsedEmail, GmailLabel } from '../types/gmail';
+import { encryptionService } from './encryptionService';
 
 const DB_NAME = 'EmailClientDB';
 const DB_VERSION = 1;
@@ -6,11 +7,7 @@ const EMAILS_STORE = 'emails';
 const LABELS_STORE = 'labels';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache TTL
 
-interface CacheEntry<T> {
-    data: T;
-    timestamp: number;
-    key: string;
-}
+// Note: We store encrypted blobs in IndexedDB; decryption happens on read
 
 class IndexedDBService {
     private db: IDBDatabase | null = null;

@@ -10,4 +10,30 @@ export default defineConfig({
   server: {
     port: 5173,
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom"],
+          router: ["react-router-dom"],
+          redux: ["@reduxjs/toolkit", "react-redux", "redux-persist"],
+          mui: [
+            "@mui/material",
+            "@mui/icons-material",
+            "@emotion/react",
+            "@emotion/styled",
+          ],
+          vendor: [
+            "axios",
+            "jwt-decode",
+            "md5",
+            "react-hot-toast",
+            "react-hook-form",
+            "lucide-react",
+          ],
+        },
+      },
+    },
+  },
 });

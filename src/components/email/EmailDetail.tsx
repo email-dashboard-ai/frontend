@@ -88,7 +88,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
       return;
     }
     fetchSummary(false);
-  }, [selectedMessage?.id]);
+  }, [selectedMessage, selectedMessage?.id, fetchSummary]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

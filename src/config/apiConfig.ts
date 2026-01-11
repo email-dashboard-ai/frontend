@@ -126,18 +126,26 @@ export const api = axios.create({
 // Store reference for interceptor
 let store: { getState: () => RootState; dispatch: any } | null = null;
 
+let getAccessToken: (() => string | null) | null = null;
+let onSessionExpired: (() => void) | null = null;
+
 export const setStoreForApi = (storeInstance: { getState: () => RootState; dispatch: any }) => {
   store = storeInstance;
 };
 
-// Request interceptor - get token from Redux store (in-memory)
+export const setApiAuthHandlers = (handlers: {
+  getAccessToken?: () => string | null;
+  onSessionExpired?: () => void;
+}) => {
+  getAccessToken = handlers.getAccessToken || null;
+  onSessionExpired = handlers.onSessionExpired || null;
+};
+
+// Request interceptor - get token via handler or Redux store (in-memory)
 api.interceptors.request.use((config) => {
-  if (store) {
-    const state = store.getState();
-    const token = state.auth.accessToken;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  const token = getAccessToken ? getAccessToken() : (store ? store.getState().auth.accessToken : null);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -213,9 +221,11 @@ api.interceptors.response.use(
 
             // Refresh failed - logout
             localStorage.removeItem("persist:auth");
-            if (store) {
-              const { handleSessionExpiry } = await import("../store/slices/authSlice");
-              store.dispatch(handleSessionExpiry());
+            if (onSessionExpired) {
+              onSessionExpired();
+            } else if (store) {
+              // Fallback: dispatch by type to avoid circular deps
+              store.dispatch({ type: "auth/handleSessionExpiry" });
             }
             return Promise.reject(refreshError);
           }
@@ -225,9 +235,11 @@ api.interceptors.response.use(
       // No refresh token - logout
       isRefreshing = false;
       localStorage.removeItem("persist:auth");
-      if (store) {
-        const { handleSessionExpiry } = await import("../store/slices/authSlice");
-        store.dispatch(handleSessionExpiry());
+      if (onSessionExpired) {
+        onSessionExpired();
+      } else if (store) {
+        // Fallback: dispatch by type to avoid circular deps
+        store.dispatch({ type: "auth/handleSessionExpiry" });
       }
     }
 

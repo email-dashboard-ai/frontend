@@ -5,10 +5,14 @@ import { CssBaseline, CircularProgress, Box } from '@mui/material';
 import { store, persistor } from './store';
 import { AppRoutes } from './routes/AppRoutes';
 import { SessionRestorer } from './components/auth/SessionRestorer';
-import { setStoreForApi } from './config/apiConfig';
+import { setStoreForApi, setApiAuthHandlers } from './config/apiConfig';
 
-// Connect store to API for in-memory token access
+// Connect store to API for in-memory token access and handlers
 setStoreForApi({ getState: store.getState, dispatch: store.dispatch });
+setApiAuthHandlers({
+  getAccessToken: () => store.getState().auth.accessToken,
+  onSessionExpired: () => store.dispatch({ type: 'auth/handleSessionExpiry' }),
+});
 
 // Create MUI theme
 const theme = createTheme({
