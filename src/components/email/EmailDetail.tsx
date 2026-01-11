@@ -2,7 +2,7 @@ import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { gmailService } from '../../services/gmailService';
 import { aiService } from '../../services/aiService';
-import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles, Inbox, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles, Inbox, AlertTriangle, ExternalLink } from 'lucide-react';
 import ReplyComposer from './ReplyComposer';
 
 import { useAppDispatch, useAppSelector } from '../../store';
@@ -61,11 +61,8 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
     const fetchSummary = async () => {
       setIsLoadingSummary(true);
       try {
-        const content = [
-          selectedMessage.subject ? `Subject: ${selectedMessage.subject}` : '',
-          selectedMessage.from ? `From: ${selectedMessage.from}` : '',
-          selectedMessage.snippet ? `Snippet: ${selectedMessage.snippet}` : '',
-        ].filter(Boolean).join('\n');
+        // Use same content format as KanbanView to leverage backend cache
+        const content = selectedMessage.body || selectedMessage.snippet || '';
 
         const res = await aiService.summarizeEmail({
           messageId: selectedMessage.id,
@@ -244,6 +241,18 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
 
         {/* Thread Participants Summary (Optional, using first message for now) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+          {/* Open in Gmail button */}
+          <a
+            href={`https://mail.google.com/mail/u/0/#inbox/${selectedMessage.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 text-sm font-medium shadow-sm hover:shadow"
+            title="Open in Gmail"
+          >
+            <ExternalLink size={16} />
+            <span className='text-white'>Open in Gmail</span>
+          </a>
+
           {/* Actions for the thread or main message */}
           {(isInTrash || isInSpam) ? (
             <>

@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Toaster } from 'react-hot-toast';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../store';
 import {
   fetchLabels,
@@ -12,7 +13,7 @@ import {
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
 import { GmailLabel, ParsedEmail, SearchResult } from '../types/gmail';
-import { LogOut, X, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { LogOut, X } from 'lucide-react';
 import { gmailService } from '../services/gmailService';
 
 // Components
@@ -32,6 +33,8 @@ import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
 
 const EmailDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAppSelector(state => state.auth);
   const { labels, selectedLabel, messages, selectedMessage, isLoading, error, nextPageToken } = useAppSelector(state => state.gmail);
 
@@ -150,8 +153,28 @@ const EmailDashboard: React.FC = () => {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    dispatch(fetchLabels());
-  }, [dispatch]);
+    if (user?.email) {
+      dispatch(fetchLabels(user.email));
+    }
+  }, [dispatch, user?.email]);
+
+  // Handle URL parameter for selected email
+  useEffect(() => {
+    const emailId = searchParams.get('email');
+    if (emailId && messages.length > 0) {
+      const message = messages.find(m => m.id === emailId);
+      if (message && (!selectedMessage || selectedMessage.id !== emailId)) {
+        dispatch(setSelectedMessage(message));
+        if (isMobile) {
+          setIsMobileDetailView(true);
+        }
+        // Mark as read if unread
+        if (!message.isRead) {
+          handleToggleRead(message.id, false);
+        }
+      }
+    }
+  }, [searchParams, messages, selectedMessage, dispatch, isMobile, handleToggleRead]);
 
   // Fetch snoozed info when SNOOZED label is selected
   useEffect(() => {
@@ -171,15 +194,15 @@ const EmailDashboard: React.FC = () => {
   }, [labels, selectedLabel, dispatch]);
 
   useEffect(() => {
-    if (selectedLabel) {
+    if (selectedLabel && user?.email) {
       dispatch(clearMessages());
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setPageToken(undefined);
       setHistoryStack([]);
       setSelectedEmailIds(new Set());
-      dispatch(fetchMessages({ labelId: selectedLabel.id }));
+      dispatch(fetchMessages({ labelId: selectedLabel.id, userEmail: user.email }));
     }
-  }, [selectedLabel, dispatch]);
+  }, [selectedLabel, dispatch, user?.email]);
 
   const toggleEmailSelection = useCallback((id: string) => {
     setSelectedEmailIds(prev => {
@@ -194,20 +217,20 @@ const EmailDashboard: React.FC = () => {
   }, []);
 
   const handleNextPage = () => {
-    if (nextPageToken && selectedLabel) {
+    if (nextPageToken && selectedLabel && user?.email) {
       setHistoryStack(prev => [...prev, pageToken || '']);
       setPageToken(nextPageToken);
-      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: nextPageToken }));
+      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: nextPageToken, userEmail: user.email }));
     }
   };
 
   const handlePrevPage = () => {
-    if (historyStack.length > 0 && selectedLabel) {
+    if (historyStack.length > 0 && selectedLabel && user?.email) {
       const prevToken = historyStack[historyStack.length - 1];
       const newStack = historyStack.slice(0, -1);
       setHistoryStack(newStack);
       setPageToken(prevToken === '' ? undefined : prevToken);
-      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: prevToken === '' ? undefined : prevToken }));
+      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: prevToken === '' ? undefined : prevToken, userEmail: user.email }));
     }
   };
 
@@ -226,6 +249,9 @@ const EmailDashboard: React.FC = () => {
 
   const handleMessageClick = (message: ParsedEmail) => {
     dispatch(setSelectedMessage(message));
+
+    // Update URL with email ID
+    navigate(`?email=${message.id}`, { replace: true });
 
     // On mobile, switch to detail view
     if (isMobile) {

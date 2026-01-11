@@ -3,6 +3,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { gmailService } from '../../services/gmailService';
 import { userService } from '../../services/userService';
+import { indexedDBService } from '../../services/indexedDBService';
 import type { GmailLabel, ParsedEmail, GmailState } from '../../types/gmail';
 import { appConfig } from '../../config/appConfig';
 
@@ -32,9 +33,38 @@ export const fetchUserProfiles = createAsyncThunk(
 );
 export const fetchLabels = createAsyncThunk(
   'gmail/fetchLabels',
-  async (_, { rejectWithValue, signal }) => {
+  async (userEmail: string, { rejectWithValue, signal, dispatch }) => {
     try {
-      return await gmailService.getLabels(signal);
+      // Stale-while-revalidate: Return cached data immediately if available
+      const cached = await indexedDBService.getLabels(userEmail);
+      if (cached && cached.data.length > 0) {
+        // Return cached data immediately (even if stale)
+        const labels = cached.data;
+
+        // If cache is stale, fetch fresh data in background
+        if (cached.isStale) {
+          gmailService.getLabels(signal)
+            .then(freshLabels => {
+              // Update cache with fresh data
+              indexedDBService.setLabels(userEmail, freshLabels).catch(console.error);
+              // Dispatch update to refresh UI with fresh data
+              dispatch(setLabels(freshLabels));
+            })
+            .catch(console.error);
+        }
+
+        return labels;
+      }
+
+      // No cache - fetch from network
+      console.log('[IndexedDB] ❌ Labels CACHE MISS - Fetching from network...');
+      const networkStart = performance.now();
+      const labels = await gmailService.getLabels(signal);
+      const networkTime = performance.now() - networkStart;
+      console.log(`[IndexedDB] 🌐 Labels fetched from network (${networkTime.toFixed(0)}ms) - Saving to cache...`);
+      // Store in cache for next time
+      indexedDBService.setLabels(userEmail, labels).catch(console.error);
+      return labels;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch labels');
     }
@@ -43,9 +73,53 @@ export const fetchLabels = createAsyncThunk(
 
 export const fetchMessages = createAsyncThunk(
   'gmail/fetchMessages',
-  async ({ labelId, pageToken, limit = appConfig.gmail.defaultPageLimit }: { labelId: string; pageToken?: string; limit?: number }, { rejectWithValue, signal }) => {
+  async ({ labelId, pageToken, limit = appConfig.gmail.defaultPageLimit, userEmail, forceRefresh = false }: { labelId: string; pageToken?: string; limit?: number; userEmail: string; forceRefresh?: boolean }, { rejectWithValue, signal, dispatch }) => {
     try {
-      return await gmailService.getMessages(labelId, pageToken, limit, signal);
+      const startTime = performance.now();
+      // Only use cache for first page (no pageToken) and when not forcing refresh
+      if (!pageToken && !forceRefresh) {
+        // Stale-while-revalidate: Return cached data immediately if available
+        const cached = await indexedDBService.getEmails(userEmail, labelId);
+        if (cached && cached.data.length > 0) {
+          const cacheTime = performance.now() - startTime;
+          console.log(`[IndexedDB] ✅ Messages CACHE HIT for ${labelId} (${cacheTime.toFixed(0)}ms) - ${cached.data.length} emails - Stale: ${cached.isStale}`);
+          // Return cached data immediately (even if stale)
+          const cachedResponse = {
+            messages: cached.data,
+            nextPageToken: null, // Cache doesn't store pagination
+          };
+
+          // If cache is stale, fetch fresh data in background
+          if (cached.isStale) {
+            console.log(`[IndexedDB] 🔄 Fetching fresh messages for ${labelId} in background...`);
+            gmailService.getMessages(labelId, pageToken, limit, signal)
+              .then(freshResponse => {
+                console.log(`[IndexedDB] ✨ Background fetch complete for ${labelId} - ${freshResponse.messages.length} emails`);
+                // Update cache with fresh data
+                indexedDBService.setEmails(userEmail, labelId, freshResponse.messages).catch(console.error);
+                // Dispatch update to refresh UI with fresh data
+                dispatch(updateMessages(freshResponse));
+              })
+              .catch(console.error);
+          }
+
+          return cachedResponse;
+        }
+      }
+
+      // No cache, pagination, or force refresh - fetch from network
+      const reason = forceRefresh ? 'FORCE REFRESH' : pageToken ? 'PAGINATION' : 'CACHE MISS';
+      console.log(`[IndexedDB] ❌ Messages ${reason} for ${labelId} - Fetching from network...`);
+      const networkStart = performance.now();
+      const response = await gmailService.getMessages(labelId, pageToken, limit, signal);
+      const networkTime = performance.now() - networkStart;
+      console.log(`[IndexedDB] 🌐 Messages fetched from network (${networkTime.toFixed(0)}ms) - ${response.messages.length} emails`);
+      // Store in cache for next time (only first page)
+      if (!pageToken) {
+        console.log(`[IndexedDB] 💾 Saving ${response.messages.length} messages to cache for ${labelId}...`);
+        indexedDBService.setEmails(userEmail, labelId, response.messages).catch(console.error);
+      }
+      return response;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to fetch messages');
     }
@@ -193,6 +267,14 @@ const gmailSlice = createSlice({
       state.selectedThreadMessages = [];
       state.isLoading = false;
       state.nextPageToken = null;
+    },
+    // Helper actions for background cache updates (don't trigger loading state)
+    setLabels: (state, action: PayloadAction<GmailLabel[]>) => {
+      state.labels = action.payload;
+    },
+    updateMessages: (state, action: PayloadAction<{ messages: ParsedEmail[]; nextPageToken: string | null }>) => {
+      state.messages = action.payload.messages;
+      state.nextPageToken = action.payload.nextPageToken;
     },
   },
   extraReducers: (builder) => {
@@ -397,5 +479,5 @@ const gmailSlice = createSlice({
   },
 });
 
-export const { setSelectedLabel, setSelectedMessage, clearError, clearMessages } = gmailSlice.actions;
+export const { setSelectedLabel, setSelectedMessage, clearError, clearMessages, setLabels, updateMessages } = gmailSlice.actions;
 export default gmailSlice.reducer;

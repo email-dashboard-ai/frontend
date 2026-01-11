@@ -25,7 +25,7 @@ class GmailService {
     }
   }
 
-  private extractBody(part: any, currentBody: string = ''): string {
+  private extractBody(part: any, currentBody: string = '', inlineImages: Map<string, string> = new Map()): string {
     let body = currentBody;
     if (part.mimeType === 'text/html' && part.body?.data) {
       body = this.decodeBase64(part.body.data);
@@ -34,20 +34,117 @@ class GmailService {
       body = `<p>${plainText.replace(/\n/g, '<br>')}</p>`;
     } else if (part.parts) {
       part.parts.forEach((p: any) => {
-        body = this.extractBody(p, body);
+        body = this.extractBody(p, body, inlineImages);
       });
     }
     return body;
   }
 
+  private async extractInlineImagesAsync(part: any, inlineImages: Map<string, string>, message: any): Promise<void> {
+    // Extract inline images and their Content-IDs
+    if (part.mimeType?.startsWith('image/')) {
+      const contentId = part.headers?.find((h: any) =>
+        h.name.toLowerCase() === 'content-id'
+      )?.value;
+
+      const cid = contentId ? contentId.replace(/[<>]/g, '') : `inline-${Math.random()}`;
+
+      // Check if image data is directly available
+      if (part.body?.data) {
+        // Create data URL from base64 data
+        const dataUrl = `data:${part.mimeType};base64,${part.body.data}`;
+        inlineImages.set(cid, dataUrl);
+      } else if (part.body?.attachmentId && message.id) {
+        // Image needs to be fetched via attachment API
+        try {
+          const config = apiConfig.getConfig();
+          const response = await api.get(
+            config.endpoints.gmail.attachment(message.id, part.body.attachmentId),
+            { responseType: 'blob' }
+          );
+
+          // Convert blob to data URL
+          const blob = response.data;
+          const dataUrl = await this.blobToDataURL(blob);
+          inlineImages.set(cid, dataUrl);
+        } catch (error) {
+          console.error('Failed to fetch inline image:', error);
+          // Use placeholder or skip
+        }
+      }
+    }
+
+    if (part.parts) {
+      for (const p of part.parts) {
+        await this.extractInlineImagesAsync(p, inlineImages, message);
+      }
+    }
+  }
+
+  private blobToDataURL(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  private extractInlineImages(part: any, inlineImages: Map<string, string>, message: any): void {
+    // Extract inline images and their Content-IDs
+    if (part.mimeType?.startsWith('image/')) {
+      const contentId = part.headers?.find((h: any) =>
+        h.name.toLowerCase() === 'content-id'
+      )?.value;
+
+      const cid = contentId ? contentId.replace(/[<>]/g, '') : `inline-${Math.random()}`;
+
+      // Check if image data is directly available
+      if (part.body?.data) {
+        // Create data URL from base64 data
+        const dataUrl = `data:${part.mimeType};base64,${part.body.data}`;
+        inlineImages.set(cid, dataUrl);
+      } else if (part.body?.attachmentId && message.id) {
+        // Image needs to be fetched via attachment API
+        // Use full URL with baseURL from config
+        const config = apiConfig.getConfig();
+        const attachmentUrl = `${config.baseUrl}/api/gmail/${message.id}/attachment/${part.body.attachmentId}`;
+        inlineImages.set(cid, attachmentUrl);
+      }
+    }
+
+    if (part.parts) {
+      part.parts.forEach((p: any) => this.extractInlineImages(p, inlineImages, message));
+    }
+  }
+
+  private replaceInlineImages(html: string, inlineImages: Map<string, string>): string {
+    let result = html;
+    inlineImages.forEach((dataUrl, cid) => {
+      // Replace cid: references with data URLs
+      result = result.replace(new RegExp(`cid:${cid}`, 'g'), dataUrl);
+    });
+    return result;
+  }
+
   private extractAttachments(part: any, attachments: any[]): void {
     if (part.filename && part.body?.attachmentId) {
-      attachments.push({
-        filename: part.filename,
-        mimeType: part.mimeType || 'application/octet-stream',
-        size: part.body.size || 0,
-        attachmentId: part.body.attachmentId,
-      });
+      // Skip ALL inline attachments (not just images)
+      // Inline content is embedded in HTML body via cid: references
+      // and has Content-Disposition: inline header
+      const isInline = part.headers?.some((h: any) =>
+        h.name.toLowerCase() === 'content-disposition' &&
+        h.value.toLowerCase().includes('inline')
+      );
+
+      if (!isInline) {
+        attachments.push({
+          filename: part.filename,
+          mimeType: part.mimeType || 'application/octet-stream',
+          size: part.body.size || 0,
+          attachmentId: part.body.attachmentId,
+        });
+      }
     }
     if (part.parts) {
       part.parts.forEach((p: any) => this.extractAttachments(p, attachments));
@@ -55,7 +152,8 @@ class GmailService {
   }
 
   // Parse Gmail message to UI-friendly format
-  private parseMessage(message: GmailMessage): ParsedEmail {
+  private async parseMessageAsync(message: GmailMessage): Promise<ParsedEmail> {
+    console.log('Parsing message:', message.id, message);
     const headers = message.payload?.headers || [];
     const getHeader = (name: string) =>
       headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
@@ -66,17 +164,38 @@ class GmailService {
     const subject = getHeader('Subject');
     const date = getHeader('Date');
 
+    // Extract inline images first
+    const inlineImages = new Map<string, string>();
+    if (message.payload) {
+      await this.extractInlineImagesAsync(message.payload, inlineImages, message);
+    }
+    console.log('Inline images extracted:', inlineImages.size, Array.from(inlineImages.keys()));
+
     // Extract body
     let body = '';
     if (message.payload) {
-      body = this.extractBody(message.payload);
+      body = this.extractBody(message.payload, '', inlineImages);
+      // Replace cid: references with data URLs
+      body = this.replaceInlineImages(body, inlineImages);
+    }
+    console.log('Body extracted, length:', body.length, 'Body preview:', body.substring(0, 200));
+
+    // If body is empty but we have inline images without cid references,
+    // render them directly (some emails only contain images)
+    if (!body && inlineImages.size > 0) {
+      console.log('Body empty but has inline images, rendering them directly');
+      const imageHtml = Array.from(inlineImages.values())
+        .map(dataUrl => `<img src="${dataUrl}" style="max-width: 100%; height: auto;" />`)
+        .join('<br/>');
+      body = `<div>${imageHtml}</div>`;
     }
 
-    // Extract attachments
+    // Extract attachments (excluding inline images)
     const attachments: any[] = [];
     if (message.payload) {
       this.extractAttachments(message.payload, attachments);
     }
+    console.log('Attachments extracted:', attachments.length);
 
     const labelIds = message.labelIds || [];
     const isRead = !labelIds.includes('UNREAD');
@@ -125,7 +244,7 @@ class GmailService {
       nextPageToken = data.data.nextPageToken;
     }
 
-    const parsedMessages = messagesRaw.map(msg => this.parseMessage(msg));
+    const parsedMessages = await Promise.all(messagesRaw.map(msg => this.parseMessageAsync(msg)));
 
     return {
       messages: parsedMessages,
@@ -136,7 +255,7 @@ class GmailService {
   async getMessage(messageId: string, signal?: AbortSignal): Promise<ParsedEmail> {
     const config = apiConfig.getConfig();
     const { data } = await api.get<ApiResponse<GmailMessage>>(config.endpoints.gmail.get(messageId), { signal });
-    return this.parseMessage(data.data);
+    return this.parseMessageAsync(data.data);
   }
 
   async getThread(threadId: string, signal?: AbortSignal): Promise<ParsedEmail[]> {
@@ -151,7 +270,7 @@ class GmailService {
       messagesRaw = data.data;
     }
 
-    return messagesRaw.map(msg => this.parseMessage(msg));
+    return Promise.all(messagesRaw.map(msg => this.parseMessageAsync(msg)));
   }
 
   async markAsRead(messageId: string): Promise<void> {
