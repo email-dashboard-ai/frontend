@@ -270,7 +270,7 @@ const EmailDashboard: React.FC = () => {
           <div className="flex items-center gap-3">
             <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-lg shadow-md" />
             <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">
-              {viewMode === 'kanban' ? 'Kanban Dashboard' : 'Gmail Dashboard'}
+              {viewMode === 'kanban' ? 'Next Gmail' : 'Next Gmail'}
             </h1>
           </div>
 
@@ -290,17 +290,17 @@ const EmailDashboard: React.FC = () => {
               />
             </div>
 
-            {/* View Toggle - Pill Style */}
-            <div className="flex bg-gray-100 p-1 rounded-full border border-gray-200 flex-shrink-0">
+            {/* View Toggle - Text Style */}
+            <div className="flex bg-blue-50 p-1 rounded-lg border border-blue-200 flex-shrink-0">
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'list'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === 'list'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-blue-600 hover:text-blue-700'
                   }`}
                 title="List View"
               >
-                <ListIcon size={18} />
+                Gmail
               </button>
               <button
                 onClick={() => {
@@ -308,13 +308,13 @@ const EmailDashboard: React.FC = () => {
                   setIsMobileDetailView(false);
                   dispatch(setSelectedMessage(null));
                 }}
-                className={`p-2 rounded-full transition-all flex items-center justify-center ${viewMode === 'kanban'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === 'kanban'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-blue-600 hover:text-blue-700'
                   }`}
                 title="Kanban Board"
               >
-                <LayoutGrid size={18} />
+                Kanban
               </button>
             </div>
           </div>

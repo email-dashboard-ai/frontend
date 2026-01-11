@@ -22,9 +22,10 @@ const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     // It gives us a code to swap for a Refresh Token on the backend.
     flow: "auth-code",
 
-    // 2. Request the same scopes you set in Google Cloud Console
-    scope: "https://www.googleapis.com/auth/gmail.modify",
-    
+    // 2. Request full Gmail access scope (https://mail.google.com/)
+    // This allows reading, composing, sending, and permanently deleting emails
+    scope: "https://mail.google.com/",
+
     // 3. Force account selection to trigger consent screen
     // This helps ensure we get a refresh token
     hint: "",
