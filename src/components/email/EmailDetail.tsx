@@ -2,7 +2,7 @@ import React from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { gmailService } from '../../services/gmailService';
 import { aiService } from '../../services/aiService';
-import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles, Inbox, AlertTriangle, ExternalLink } from 'lucide-react';
+import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles, Inbox, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
 import ReplyComposer from './ReplyComposer';
 
 import { useAppDispatch, useAppSelector } from '../../store';
@@ -50,6 +50,36 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   // AI Summary state
   const [aiSummary, setAiSummary] = React.useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = React.useState(false);
+  const [isRegenerating, setIsRegenerating] = React.useState(false);
+
+  // Function to fetch/regenerate summary
+  const fetchSummary = React.useCallback(async (regenerate = false) => {
+    if (!selectedMessage) return;
+
+    if (regenerate) {
+      setIsRegenerating(true);
+    } else {
+      setIsLoadingSummary(true);
+    }
+
+    try {
+      const content = selectedMessage.body || selectedMessage.snippet || '';
+
+      const res = regenerate
+        ? await aiService.regenerateSummary(selectedMessage.id, content)
+        : await aiService.summarizeEmail({
+          messageId: selectedMessage.id,
+          content,
+        });
+      setAiSummary(res.summary);
+    } catch (err) {
+      console.error('Failed to fetch AI summary:', err);
+      setAiSummary(null);
+    } finally {
+      setIsLoadingSummary(false);
+      setIsRegenerating(false);
+    }
+  }, [selectedMessage]);
 
   // Fetch AI summary when message changes
   React.useEffect(() => {
@@ -57,28 +87,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
       setAiSummary(null);
       return;
     }
-
-    const fetchSummary = async () => {
-      setIsLoadingSummary(true);
-      try {
-        // Use same content format as KanbanView to leverage backend cache
-        const content = selectedMessage.body || selectedMessage.snippet || '';
-
-        const res = await aiService.summarizeEmail({
-          messageId: selectedMessage.id,
-          content,
-        });
-        setAiSummary(res.summary);
-      } catch (err) {
-        console.error('Failed to fetch AI summary:', err);
-        setAiSummary(null);
-      } finally {
-        setIsLoadingSummary(false);
-      }
-    };
-
-    fetchSummary();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchSummary(false);
   }, [selectedMessage?.id]);
 
   const formatDate = (dateString: string) => {
@@ -224,13 +233,24 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
 
         {/* AI Summary Section */}
         <div className="mb-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-100">
-          <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700 mb-2">
-            {isLoadingSummary ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Sparkles size={16} />
-            )}
-            AI Summary
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-indigo-700">
+              {isLoadingSummary || isRegenerating ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Sparkles size={16} />
+              )}
+              AI Summary
+            </div>
+            <button
+              onClick={() => fetchSummary(true)}
+              disabled={isLoadingSummary || isRegenerating}
+              className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              title="Regenerate summary with your custom prompt"
+            >
+              <RefreshCw size={14} className={isRegenerating ? 'animate-spin' : ''} />
+              {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+            </button>
           </div>
           <p className="text-sm text-gray-700 leading-relaxed">
             {isLoadingSummary

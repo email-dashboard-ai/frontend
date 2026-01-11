@@ -13,7 +13,7 @@ import {
 } from '../store/slices/gmailSlice';
 import { logout } from '../store/slices/authSlice';
 import { GmailLabel, ParsedEmail, SearchResult } from '../types/gmail';
-import { LogOut, X } from 'lucide-react';
+import { LogOut, X, Settings } from 'lucide-react';
 import { gmailService } from '../services/gmailService';
 
 // Components
@@ -25,6 +25,7 @@ import KanbanView from '../components/email/KanbanView';
 import SearchPanel from '../components/email/SearchPanel';
 import SearchResults from '../components/email/SearchResults';
 import KeyboardShortcutsModal from '../components/email/KeyboardShortcutsModal';
+import SettingsModal from '../components/common/SettingsModal';
 
 // Hooks
 import { useResizableLayout } from '../hooks/useResizableLayout';
@@ -49,6 +50,7 @@ const EmailDashboard: React.FC = () => {
   const [kanbanStatuses, setKanbanStatuses] = useState<Record<string, string>>({});
   const [snoozedInfo, setSnoozedInfo] = useState<Record<string, string>>({});
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -360,6 +362,13 @@ const EmailDashboard: React.FC = () => {
               </span>
             </div>
             <button
+              onClick={() => setShowSettingsModal(true)}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+              title="Settings"
+            >
+              <Settings size={20} />
+            </button>
+            <button
               onClick={() => dispatch(logout())}
               className="text-gray-500 hover:text-gray-700 transition-colors"
               title="Logout"
@@ -547,6 +556,12 @@ const EmailDashboard: React.FC = () => {
       <KeyboardShortcutsModal
         isOpen={showShortcutsModal}
         onClose={() => setShowShortcutsModal(false)}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
     </div>
   );

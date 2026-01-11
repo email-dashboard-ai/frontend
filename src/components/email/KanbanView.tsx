@@ -190,6 +190,9 @@ const KanbanView: React.FC<KanbanViewProps> = ({
           summary={summariesById[modalEmail.id]}
           onClose={() => setModalEmail(null)}
           onView={() => onMessageClick(modalEmail)}
+          onSummaryUpdate={(emailId, newSummary) => {
+            setSummariesById(prev => ({ ...prev, [emailId]: newSummary }));
+          }}
         />
       )}
 

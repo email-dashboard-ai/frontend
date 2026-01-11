@@ -1,16 +1,40 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ParsedEmail } from '../../types/gmail';
-import { Sparkles, ExternalLink, X } from 'lucide-react';
+import { Sparkles, ExternalLink, X, RefreshCw } from 'lucide-react';
+import { aiService } from '../../services/aiService';
 
 interface SummaryModalProps {
   email: ParsedEmail | null; // Allow null for safer typing
   summary: string;
   onClose: () => void;
   onView: () => void;
+  onSummaryUpdate?: (emailId: string, newSummary: string) => void;
 }
 
-const SummaryModal: React.FC<SummaryModalProps> = ({ email, summary, onClose }) => {
+const SummaryModal: React.FC<SummaryModalProps> = ({ email, summary, onClose, onSummaryUpdate }) => {
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [currentSummary, setCurrentSummary] = useState(summary);
+
+  // Update local summary when prop changes
+  React.useEffect(() => {
+    setCurrentSummary(summary);
+  }, [summary]);
+
   if (!email) return null;
+
+  const handleRegenerate = async () => {
+    setIsRegenerating(true);
+    try {
+      const content = email.body || email.snippet || '';
+      const res = await aiService.regenerateSummary(email.id, content);
+      setCurrentSummary(res.summary);
+      onSummaryUpdate?.(email.id, res.summary);
+    } catch (err) {
+      console.error('Failed to regenerate summary:', err);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
 
   const extractName = (emailString: string) => {
     const match = emailString.match(/^"?([^"<]+)"?\s*</);
@@ -57,13 +81,24 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ email, summary, onClose }) 
 
         {/* AI Summary Content */}
         <div className="p-6">
-          <div className="flex items-center gap-2 text-slate-700 font-semibold mb-4">
-            <Sparkles size={20} />
-            <span>AI Summary</span>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2 text-slate-700 font-semibold">
+              <Sparkles size={20} />
+              <span>AI Summary</span>
+            </div>
+            <button
+              onClick={handleRegenerate}
+              disabled={isRegenerating}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Regenerate with your custom prompt"
+            >
+              <RefreshCw size={14} className={isRegenerating ? 'animate-spin' : ''} />
+              {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+            </button>
           </div>
           <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
             <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {summary || email.snippet || 'No summary available'}
+              {isRegenerating ? 'Regenerating summary...' : (currentSummary || email.snippet || 'No summary available')}
             </p>
           </div>
         </div>
