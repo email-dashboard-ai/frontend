@@ -8,9 +8,11 @@ import {
   untrashEmailAction,
   fetchMessages,
   batchDeleteEmailsAction,
-  batchUpdateStatusAction
+  batchUpdateStatusAction,
+  setSelectedMessage
 } from '../store/slices/gmailSlice';
 import { gmailService } from '../services/gmailService';
+import { indexedDBService } from '../services/indexedDBService';
 import toast from 'react-hot-toast';
 
 export const useEmailActions = () => {
@@ -35,26 +37,40 @@ export const useEmailActions = () => {
       .unwrap()
       .then(() => {
         toast.success('Email moved to trash');
+        // Invalidate TRASH cache so it shows fresh data when user visits TRASH
+        if (userEmail) {
+          indexedDBService.invalidateLabelCache(userEmail, 'TRASH').catch(console.error);
+        }
       })
       .catch(() => {
         toast.error('Failed to delete email');
       });
-  }, [dispatch]);
+  }, [dispatch, userEmail]);
 
   const handleRestoreEmail = useCallback((messageId: string) => {
     dispatch(untrashEmailAction(messageId))
       .unwrap()
-      .then(() => toast.success('Email restored'))
+      .then(() => {
+        toast.success('Email restored');
+        // Invalidate INBOX cache so it shows fresh data when user visits INBOX
+        if (userEmail) {
+          indexedDBService.invalidateLabelCache(userEmail, 'INBOX').catch(console.error);
+        }
+      })
       .catch(() => toast.error('Failed to restore email'));
-  }, [dispatch]);
+  }, [dispatch, userEmail]);
 
   const handleMoveToInbox = useCallback(async (messageId: string, labelId: string) => {
     try {
       await gmailService.moveToInbox(messageId);
       toast.success('Email moved to Inbox');
+      // Clear the selected message since it was moved out of current label
+      dispatch(setSelectedMessage(null));
       // Refresh the current label to update the list
       if (userEmail) {
-        dispatch(fetchMessages({ labelId, userEmail }));
+        // Invalidate INBOX cache so it shows the moved email
+        indexedDBService.invalidateLabelCache(userEmail, 'INBOX').catch(console.error);
+        dispatch(fetchMessages({ labelId, userEmail, forceRefresh: true }));
       }
     } catch (error) {
       toast.error('Failed to move email to Inbox');
@@ -66,9 +82,13 @@ export const useEmailActions = () => {
     try {
       await gmailService.permanentlyDelete(messageId);
       toast.success('Email permanently deleted');
-      // Refresh the current label to update the list
+      // Clear the selected message FIRST since it was permanently deleted
+      dispatch(setSelectedMessage(null));
+      // Refresh the current label (TRASH/SPAM) to update the list
       if (userEmail) {
-        dispatch(fetchMessages({ labelId, userEmail }));
+        // Invalidate the label cache
+        indexedDBService.invalidateLabelCache(userEmail, labelId).catch(console.error);
+        dispatch(fetchMessages({ labelId, userEmail, forceRefresh: true }));
       }
     } catch (error) {
       toast.error('Failed to permanently delete email');
@@ -87,10 +107,14 @@ export const useEmailActions = () => {
     try {
       await dispatch(batchDeleteEmailsAction(ids)).unwrap();
       toast.success(`${ids.length} emails moved to trash`);
+      // Invalidate TRASH cache so it shows fresh data when user visits TRASH
+      if (userEmail) {
+        indexedDBService.invalidateLabelCache(userEmail, 'TRASH').catch(console.error);
+      }
     } catch {
       toast.error('Failed to delete emails');
     }
-  }, [dispatch]);
+  }, [dispatch, userEmail]);
 
   const handleBulkMarkRead = useCallback(async (ids: string[], isRead: boolean) => {
     try {
@@ -106,7 +130,9 @@ export const useEmailActions = () => {
       toast.success('Email snoozed successfully');
       // Refresh the current label to remove the snoozed email
       if (userEmail) {
-        dispatch(fetchMessages({ labelId, userEmail }));
+        // Invalidate SNOOZED label cache so it shows fresh data when user visits SNOOZED
+        // Note: SNOOZED is a custom label, need to find its ID
+        dispatch(fetchMessages({ labelId, userEmail, forceRefresh: true }));
       }
     } catch (error) {
       toast.error('Failed to snooze email');
