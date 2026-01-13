@@ -6,6 +6,7 @@ import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare,
 import EmailContextMenu from './EmailContextMenu';
 import SnoozeDatePicker from './SnoozeDatePicker';
 import UserAvatar from '../common/UserAvatar';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 interface EmailListProps {
   listWidth: number;
@@ -67,6 +68,7 @@ const EmailList: React.FC<EmailListProps> = ({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; emailId: string } | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedEmailForSnooze, setSelectedEmailForSnooze] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; ids: string[]; isBulk: boolean }>({ show: false, ids: [], isBulk: false });
   const dispatch = useAppDispatch();
   const { knownUsers } = useAppSelector(state => state.gmail);
   const isInTrash = selectedLabel?.id === 'TRASH';
@@ -199,8 +201,7 @@ const EmailList: React.FC<EmailListProps> = ({
                   onPermanentlyDelete && (
                     <button
                       onClick={() => {
-                        Array.from(selectedIds).forEach(id => onPermanentlyDelete(id));
-                        onClearSelection();
+                        setDeleteConfirm({ show: true, ids: Array.from(selectedIds), isBulk: true });
                       }}
                       className="p-2 hover:bg-red-100 rounded text-red-600 transition-colors"
                       title="Delete Forever"
@@ -345,7 +346,7 @@ const EmailList: React.FC<EmailListProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onPermanentlyDelete(message.id);
+                                setDeleteConfirm({ show: true, ids: [message.id], isBulk: false });
                               }}
                               className="p-1.5 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                               title="Delete Forever"
@@ -503,6 +504,28 @@ const EmailList: React.FC<EmailListProps> = ({
           }}
         />
       )}
+
+      {/* Delete Forever Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteConfirm.show}
+        onClose={() => setDeleteConfirm({ show: false, ids: [], isBulk: false })}
+        onConfirm={() => {
+          if (onPermanentlyDelete) {
+            deleteConfirm.ids.forEach(id => onPermanentlyDelete(id));
+            if (deleteConfirm.isBulk) {
+              onClearSelection();
+            }
+          }
+        }}
+        title="Delete Forever?"
+        message={deleteConfirm.isBulk
+          ? `${deleteConfirm.ids.length} email(s) will be permanently deleted. This action cannot be undone.`
+          : "This email will be permanently deleted. This action cannot be undone."
+        }
+        confirmText="Delete Forever"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 };

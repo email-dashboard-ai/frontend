@@ -288,6 +288,32 @@ class IndexedDBService {
     }
 
     /**
+     * Invalidate cache for a specific label
+     * This should be called when emails are moved to/from a label
+     */
+    async invalidateLabelCache(userEmail: string, labelId: string): Promise<void> {
+        await this.init();
+        if (!this.db) return;
+
+        const key = this.getEmailsCacheKey(userEmail, labelId);
+
+        return new Promise((resolve, reject) => {
+            const transaction = this.db!.transaction([EMAILS_STORE], 'readwrite');
+            const store = transaction.objectStore(EMAILS_STORE);
+            const request = store.delete(key);
+
+            request.onsuccess = () => {
+                console.log(`[IndexedDB] 🗑️ Cache invalidated for label: ${labelId}`);
+                resolve();
+            };
+            request.onerror = () => {
+                console.error('Failed to invalidate label cache:', request.error);
+                reject(request.error);
+            };
+        });
+    }
+
+    /**
      * Clear expired cache entries
      */
     async clearExpiredCache(): Promise<void> {

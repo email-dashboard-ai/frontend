@@ -4,6 +4,7 @@ import { gmailService } from '../../services/gmailService';
 import { aiService } from '../../services/aiService';
 import { ChevronLeft, Star, MailOpen, Mail, Reply, ReplyAll, Forward, Trash2, Loader2, Paperclip, FileText, Download, Sparkles, Inbox, AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react';
 import ReplyComposer from './ReplyComposer';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 import { useAppDispatch, useAppSelector } from '../../store';
 import { fetchUserProfiles } from '../../store/slices/gmailSlice';
@@ -46,6 +47,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
   const showStarButton = !isInTrash && !isInSpam && !isInSent && !isInDraft;
   const [showReply, setShowReply] = React.useState(false);
   const [replyAll, setReplyAll] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   // AI Summary state
   const [aiSummary, setAiSummary] = React.useState<string | null>(null);
@@ -289,7 +291,7 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
               {/* Delete Forever */}
               {onPermanentlyDelete && (
                 <button
-                  onClick={() => onPermanentlyDelete(selectedMessage.id)}
+                  onClick={() => setShowDeleteConfirm(true)}
                   className="p-2 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded-lg transition-colors"
                   title="Delete Forever"
                 >
@@ -428,6 +430,22 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
           onSuccess={handleReplyClose}
         />
       )}
+
+      {/* Delete Forever Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          if (onPermanentlyDelete && selectedMessage) {
+            onPermanentlyDelete(selectedMessage.id);
+          }
+        }}
+        title="Delete Forever?"
+        message="This email will be permanently deleted. This action cannot be undone."
+        confirmText="Delete Forever"
+        cancelText="Cancel"
+        variant="danger"
+      />
     </div>
   );
 };

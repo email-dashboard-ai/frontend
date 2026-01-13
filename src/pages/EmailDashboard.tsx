@@ -145,11 +145,16 @@ const EmailDashboard: React.FC = () => {
       if (selectedLabel) {
         refreshMessages(selectedLabel.id);
       }
+      // Invalidate INBOX cache since email moves back to INBOX
+      if (user?.email) {
+        const { indexedDBService } = await import('../services/indexedDBService');
+        indexedDBService.invalidateLabelCache(user.email, 'INBOX').catch(console.error);
+      }
       fetchSnoozedInfo();
     } catch (error) {
       console.error('Failed to unsnooze email', error);
     }
-  }, [selectedLabel, refreshMessages, fetchSnoozedInfo]);
+  }, [selectedLabel, refreshMessages, fetchSnoozedInfo, user?.email]);
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -460,11 +465,15 @@ const EmailDashboard: React.FC = () => {
                 onUnsnooze={handleUnsnoozeEmail}
                 onMoveToInbox={(emailId) => {
                   if (selectedLabel) {
+                    dispatch(setSelectedMessage(null));
+                    navigate('', { replace: true });
                     handleMoveToInbox(emailId, selectedLabel.id);
                   }
                 }}
                 onPermanentlyDelete={(emailId) => {
                   if (selectedLabel) {
+                    dispatch(setSelectedMessage(null));
+                    navigate('', { replace: true });
                     handlePermanentlyDelete(emailId, selectedLabel.id);
                   }
                 }}
@@ -487,11 +496,18 @@ const EmailDashboard: React.FC = () => {
               onDelete={handleDeleteEmail}
               onMoveToInbox={(emailId) => {
                 if (selectedLabel) {
+                  dispatch(setSelectedMessage(null));
+                  // Clear URL parameter to prevent useEffect from restoring selected message
+                  navigate('', { replace: true });
                   handleMoveToInbox(emailId, selectedLabel.id);
                 }
               }}
               onPermanentlyDelete={(emailId) => {
                 if (selectedLabel) {
+                  // Clear selected message FIRST to ensure immediate UI update
+                  dispatch(setSelectedMessage(null));
+                  // Clear URL parameter to prevent useEffect from restoring selected message
+                  navigate('', { replace: true });
                   handlePermanentlyDelete(emailId, selectedLabel.id);
                 }
               }}
@@ -511,11 +527,15 @@ const EmailDashboard: React.FC = () => {
                 onDelete={handleDeleteEmail}
                 onMoveToInbox={(emailId) => {
                   if (selectedLabel) {
+                    dispatch(setSelectedMessage(null));
+                    navigate('', { replace: true });
                     handleMoveToInbox(emailId, selectedLabel.id);
                   }
                 }}
                 onPermanentlyDelete={(emailId) => {
                   if (selectedLabel) {
+                    dispatch(setSelectedMessage(null));
+                    navigate('', { replace: true });
                     handlePermanentlyDelete(emailId, selectedLabel.id);
                   }
                 }}
