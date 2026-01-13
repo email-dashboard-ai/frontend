@@ -4,7 +4,7 @@
  * Shows sync progress and allows manual retry
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   WifiOff,
   Wifi,
@@ -42,7 +42,7 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({
 
   const [isDismissed, setIsDismissed] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [prevPendingCount, setPrevPendingCount] = useState(pendingCount);
+  const prevPendingCountRef = useRef(pendingCount);
 
   // Reset dismissed state when going offline
   useEffect(() => {
@@ -53,13 +53,14 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({
 
   // Show success toast when sync completes
   useEffect(() => {
-    if (prevPendingCount > 0 && pendingCount === 0 && !isOffline) {
+    if (prevPendingCountRef.current > 0 && pendingCount === 0 && !isOffline) {
       setTimeout(() => setShowSuccessToast(true), 0);
       const timer = setTimeout(() => setShowSuccessToast(false), 3000);
+      prevPendingCountRef.current = pendingCount;
       return () => clearTimeout(timer);
     }
-    setPrevPendingCount(pendingCount);
-  }, [pendingCount, isOffline, prevPendingCount]);
+    prevPendingCountRef.current = pendingCount;
+  }, [pendingCount, isOffline]);
 
   // Don't show if online with no pending actions (unless showing success)
   if (!isOffline && !hasPendingActions && !showSuccessToast && syncStatus === 'idle') {
