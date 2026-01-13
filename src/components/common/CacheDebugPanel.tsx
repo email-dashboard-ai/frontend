@@ -43,7 +43,7 @@ export const CacheDebugPanel: React.FC = () => {
   // Sau đó reload trang.
   const [isVisible] = useState(() => localStorage.getItem('debug_mode') === 'true');
 
-  if (!isVisible) return null;
+
 
   const refreshStats = useCallback(async () => {
     setIsLoading(true);
@@ -89,6 +89,8 @@ export const CacheDebugPanel: React.FC = () => {
       window.dispatchEvent(new Event(isGoingOffline ? 'offline' : 'online'));
     }, 100);
   };
+
+  if (!isVisible) return null;
 
   if (!isOpen) {
     return (

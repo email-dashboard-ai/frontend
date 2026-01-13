@@ -54,7 +54,7 @@ export const useEmailActions = () => {
         indexedDBService.updateEmailReadStatus(userEmail, messageId, !isRead).catch(console.error);
       }
     }
-  }, [dispatch, isOffline]);
+  }, [dispatch, isOffline, userEmail]);
 
   /**
    * Handle toggle star with offline support
@@ -74,7 +74,7 @@ export const useEmailActions = () => {
         indexedDBService.updateEmailStarStatus(userEmail, messageId, newStarred).catch(console.error);
       }
     }
-  }, [dispatch, isOffline]);
+  }, [dispatch, isOffline, userEmail]);
 
   /**
    * Handle delete email with offline support

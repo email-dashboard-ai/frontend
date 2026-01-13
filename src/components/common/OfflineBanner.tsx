@@ -47,14 +47,14 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({
   // Reset dismissed state when going offline
   useEffect(() => {
     if (isOffline) {
-      setIsDismissed(false);
+      setTimeout(() => setIsDismissed(false), 0);
     }
   }, [isOffline]);
 
   // Show success toast when sync completes
   useEffect(() => {
     if (prevPendingCount > 0 && pendingCount === 0 && !isOffline) {
-      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(true), 0);
       const timer = setTimeout(() => setShowSuccessToast(false), 3000);
       return () => clearTimeout(timer);
     }
