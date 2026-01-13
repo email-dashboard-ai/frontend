@@ -20,6 +20,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
     const filterRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
     const suggestionsRef = useRef<HTMLDivElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const { suggestions, updateSuggestions, clearSuggestions, saveRecentSearch, showRecentOnFocus } = useSearchSuggestions({
         maxSuggestions: 5,
@@ -56,8 +57,18 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
         const hasValue = Object.values(requestToUse).some(v => v !== undefined && v !== '' && v !== false);
         if (!hasValue) return;
 
+        // Cancel any ongoing search
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+
+        // Create new abort controller for this search
+        abortControllerRef.current = new AbortController();
+
+        // Close UI elements immediately for better UX
         setIsSearching(true);
         setShowSuggestions(false);
+        setShowFilters(false);  // Close filter panel immediately
         clearSuggestions();
 
         // Save search term to recent searches
@@ -66,22 +77,59 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
         }
 
         try {
-            const results = await gmailService.search(requestToUse);
+            const results = await gmailService.search(requestToUse, abortControllerRef.current.signal);
+            // Check if this search was aborted
+            if (abortControllerRef.current?.signal.aborted) {
+                return;
+            }
             onSearchResults(results);
-            setShowFilters(false);
         } catch (error) {
+            if (abortControllerRef.current?.signal.aborted) {
+                console.log('Search cancelled by user');
+                return;
+            }
             console.error('Search failed:', error);
         } finally {
-            setIsSearching(false);
+            if (!abortControllerRef.current?.signal.aborted) {
+                setIsSearching(false);
+            }
         }
     }, [searchRequest, onSearchResults, clearSuggestions, saveRecentSearch]);
 
     const handleClear = useCallback(() => {
-        setSearchRequest({});
+        // Cancel any ongoing search
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setIsSearching(false);
+
+        // Only clear the search input (body), keep filters intact
+        const newRequest = {
+            ...searchRequest,
+            body: undefined,
+        };
+        setSearchRequest(newRequest);
         clearSuggestions();
         setShowSuggestions(false);
-        onClearSearch();
-    }, [onClearSearch, clearSuggestions]);
+
+        // Only clear results if no filters are active
+        const hasActiveFilters = Object.entries(newRequest)
+            .some(([key, value]) => key !== 'body' && value !== undefined && value !== '' && value !== false);
+
+        if (!hasActiveFilters) {
+            onClearSearch();
+        }
+    }, [onClearSearch, clearSuggestions, searchRequest]);
+
+    const handleCancelSearch = useCallback(() => {
+        // Only cancel the ongoing search, don't clear input
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+            abortControllerRef.current = null;
+        }
+        setIsSearching(false);
+    }, []);
 
     const updateField = (field: keyof SearchRequest, value: string | boolean | undefined) => {
         setSearchRequest(prev => ({
@@ -92,23 +140,30 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
 
     // Handle suggestion selection
     const handleSuggestionClick = useCallback((suggestion: SearchSuggestion) => {
-        let newRequest: SearchRequest;
+        // Merge suggestion with existing filters instead of replacing
+        const newRequest: SearchRequest = {
+            ...searchRequest,  // Keep existing filters
+        };
 
         if (suggestion.type === 'contact') {
             // Search by sender email
-            newRequest = { from: suggestion.value };
+            newRequest.from = suggestion.value;
         } else {
             // Search by keyword in body
-            newRequest = { body: suggestion.value };
+            newRequest.body = suggestion.value;
         }
 
-        setSearchRequest(newRequest);
+        // Close dropdown and blur input to prevent useEffect from re-opening
         setShowSuggestions(false);
+        setIsFocused(false);
         clearSuggestions();
+        inputRef.current?.blur();
+
+        setSearchRequest(newRequest);
 
         // Trigger search immediately
         handleSearch(newRequest);
-    }, [handleSearch, clearSuggestions]);
+    }, [handleSearch, clearSuggestions, searchRequest]);
 
     // Handle keyboard navigation in suggestions
     const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -206,12 +261,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                     autoComplete="off"
                 />
 
-                {/* Clear Button */}
-                {(searchRequest.body || isSearchActive) && (
+                {/* Clear/Cancel Button */}
+                {(searchRequest.body || isSearchActive || isSearching) && (
                     <button
-                        onClick={handleClear}
+                        onClick={isSearching ? handleCancelSearch : handleClear}
                         className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors mr-1"
-                        title="Clear search"
+                        title={isSearching ? "Cancel search" : "Clear search"}
                     >
                         <X size={19} />
                     </button>
