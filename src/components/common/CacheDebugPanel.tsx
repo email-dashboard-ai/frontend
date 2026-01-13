@@ -37,11 +37,13 @@ export const CacheDebugPanel: React.FC = () => {
 
   const [isSimulatedOffline, setIsSimulatedOffline] = useState(false);
 
-  // === CẤU HÌNH ẨN/HIỆN PANEL Ở ĐÂY ===
-  // Hiện tại: Chỉ hiện khi chạy dưới localhost (Development)
-  // Muốn tắt hẳn: return null;
-  // Muốn luôn hiện: Xóa dòng if này đi
-  // return null;
+  // === CONFIG DISPLAY ===
+  // Mặc định là ẨN. Muốn hiện, mở DevTools (F12) -> Console và gõ:
+  // localStorage.setItem('debug_mode', 'true')
+  // Sau đó reload trang.
+  const [isVisible] = useState(() => localStorage.getItem('debug_mode') === 'true');
+
+  if (!isVisible) return null;
 
   const refreshStats = useCallback(async () => {
     setIsLoading(true);
