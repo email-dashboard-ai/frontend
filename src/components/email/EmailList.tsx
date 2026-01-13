@@ -16,6 +16,7 @@ interface EmailListProps {
   selectedMessage: ParsedEmail | null;
   selectedLabel: GmailLabel | null;
   isLoading: boolean;
+  error?: string | null;
   searchQuery: string;
   onRefresh: () => void;
   onMessageClick: (message: ParsedEmail) => void;
@@ -45,6 +46,7 @@ const EmailList: React.FC<EmailListProps> = ({
   selectedMessage,
   selectedLabel,
   isLoading,
+  error,
   searchQuery,
   onRefresh,
   onMessageClick,
@@ -161,7 +163,7 @@ const EmailList: React.FC<EmailListProps> = ({
 
   // Render empty state based on offline status
   const renderEmptyState = () => {
-    if (isOffline) {
+    if (isOffline && error) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6 text-center">
           <WifiOff size={48} className="mb-4 text-yellow-500" />

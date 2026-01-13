@@ -101,10 +101,15 @@ const EmailDashboard: React.FC = () => {
     messages,
     selectedMessage,
     onSelectMessage: (message) => {
-      dispatch(setSelectedMessage(message));
-      // Mark as read when selecting via keyboard
-      if (message && !message.isRead) {
-        handleToggleRead(message.id, false);
+      if (message) {
+        dispatch(setSelectedMessage(message));
+        navigate(`?email=${message.id}`, { replace: true });
+        // Mark as read when selecting via keyboard
+        if (!message.isRead) {
+          handleToggleRead(message.id, false);
+        }
+      } else {
+        navigate('.', { replace: true });
       }
     },
     onDeleteMessage: handleDeleteEmail,
@@ -178,6 +183,8 @@ const EmailDashboard: React.FC = () => {
           handleToggleRead(message.id, false);
         }
       }
+    } else if (!emailId && selectedMessage) {
+      dispatch(setSelectedMessage(null));
     }
   }, [searchParams, messages, selectedMessage, dispatch, isMobile, handleToggleRead]);
 
@@ -447,6 +454,7 @@ const EmailDashboard: React.FC = () => {
                 selectedMessage={selectedMessage}
                 selectedLabel={selectedLabel}
                 isLoading={isLoading}
+                error={error}
                 searchQuery=""
                 onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
                 onMessageClick={handleMessageClick}

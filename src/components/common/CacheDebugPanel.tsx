@@ -41,9 +41,7 @@ export const CacheDebugPanel: React.FC = () => {
   // Hiện tại: Chỉ hiện khi chạy dưới localhost (Development)
   // Muốn tắt hẳn: return null;
   // Muốn luôn hiện: Xóa dòng if này đi
-  if (import.meta.env.PROD) {
-    return null;
-  }
+  // return null;
 
   const refreshStats = useCallback(async () => {
     setIsLoading(true);

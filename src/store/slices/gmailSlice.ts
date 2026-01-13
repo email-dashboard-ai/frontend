@@ -120,7 +120,7 @@ export const fetchMessages = createAsyncThunk(
       if (!pageToken) {
         const cached = await indexedDBService.getEmails(userEmail, labelId);
 
-        if (cached && cached.data.length > 0) {
+        if (cached) {
           const cacheTime = performance.now() - startTime;
           log(`[Cache] Messages HIT for ${labelId} (${cacheTime.toFixed(0)}ms) - ${cached.data.length} emails`);
 
@@ -165,7 +165,7 @@ export const fetchMessages = createAsyncThunk(
 
         // Try to get any cache as last resort
         const fallbackCache = await indexedDBService.getEmails(userEmail, labelId);
-        if (fallbackCache && fallbackCache.data.length > 0) {
+        if (fallbackCache) {
           log(`[Cache] Using fallback for ${labelId}`);
           return {
             messages: fallbackCache.data,
@@ -197,7 +197,7 @@ export const fetchMessages = createAsyncThunk(
       // Network error - try to fallback to cache
       try {
         const fallbackCache = await indexedDBService.getEmails(userEmail, labelId);
-        if (fallbackCache && fallbackCache.data.length > 0) {
+        if (fallbackCache) {
           log(`[Cache] Using fallback for ${labelId}`);
           return {
             messages: fallbackCache.data,
