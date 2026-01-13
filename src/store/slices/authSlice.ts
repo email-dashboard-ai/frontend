@@ -77,8 +77,9 @@ export const logout = createAsyncThunk(
   async (_, { getState }) => {
     try {
       const state = getState() as { auth: AuthState };
+      const userEmail = state.auth.user?.email;
       if (state.auth.refreshToken) {
-        await authService.logout();
+        await authService.logout(userEmail);
       }
     } catch (error) {
       // Log error but don't fail logout
@@ -86,6 +87,7 @@ export const logout = createAsyncThunk(
     }
   }
 );
+
 
 const authSlice = createSlice({
   name: "auth",

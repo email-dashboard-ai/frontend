@@ -109,6 +109,7 @@ const EmailDashboard: React.FC = () => {
     },
     onDeleteMessage: handleDeleteEmail,
     onToggleStar: handleToggleStar,
+    onClearSelection: () => setSelectedEmailIds(new Set()),
     onFocusSearch: () => {
       const searchInput = document.querySelector('input[placeholder="Search mail"]') as HTMLInputElement;
       searchInput?.focus();
@@ -251,7 +252,7 @@ const EmailDashboard: React.FC = () => {
     setIsMobileDetailView(false);
   };
 
-  const handleMessageClick = (message: ParsedEmail) => {
+  const handleMessageClick = async (message: ParsedEmail) => {
     dispatch(setSelectedMessage(message));
 
     // Update URL with email ID
@@ -266,7 +267,18 @@ const EmailDashboard: React.FC = () => {
     if (!message.isRead) {
       handleToggleRead(message.id, false);
     }
+
+    // Cache individual email for offline access
+    if (user?.email) {
+      try {
+        const { indexedDBService } = await import('../services/indexedDBService');
+        indexedDBService.setIndividualEmail(user.email, message).catch(console.error);
+      } catch (error) {
+        console.error('Failed to cache individual email:', error);
+      }
+    }
   };
+
 
   const handleBackToKanban = useCallback(() => {
     setIsMobileDetailView(false);

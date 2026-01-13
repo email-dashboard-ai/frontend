@@ -6,6 +6,8 @@ import { store, persistor } from './store';
 import { AppRoutes } from './routes/AppRoutes';
 import { SessionRestorer } from './components/auth/SessionRestorer';
 import { setStoreForApi, setApiAuthHandlers } from './config/apiConfig';
+import { OfflineBanner } from './components/common/OfflineBanner';
+import { CacheDebugPanel } from './components/common/CacheDebugPanel';
 
 // Connect store to API for in-memory token access and handlers
 setStoreForApi({ getState: store.getState, dispatch: store.dispatch });
@@ -54,7 +56,11 @@ function App() {
         <SessionRestorer>
           <ThemeProvider theme={theme}>
             <CssBaseline />
+            {/* Global Offline Banner */}
+            <OfflineBanner position="top" showPendingCount dismissible />
             <AppRoutes />
+            {/* Debug Panel - only visible in development */}
+            <CacheDebugPanel />
           </ThemeProvider>
         </SessionRestorer>
       </PersistGate>

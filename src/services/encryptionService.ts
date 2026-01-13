@@ -126,9 +126,14 @@ class EncryptionService {
 
   /**
    * Convert ArrayBuffer to Base64 string
+   * Uses loop to avoid stack overflow with large arrays
    */
   private arrayBufferToBase64(buffer: Uint8Array): string {
-    const binary = String.fromCharCode(...buffer);
+    let binary = '';
+    const len = buffer.length;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(buffer[i]);
+    }
     return btoa(binary);
   }
 

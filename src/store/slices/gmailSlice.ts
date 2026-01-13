@@ -7,6 +7,10 @@ import { indexedDBService } from '../../services/indexedDBService';
 import type { GmailLabel, ParsedEmail, GmailState } from '../../types/gmail';
 import { appConfig } from '../../config/appConfig';
 
+// Debug flag - set to true to enable verbose cache logging
+const DEBUG_CACHE = import.meta.env.DEV && false;
+const log = DEBUG_CACHE ? console.log.bind(console) : () => { };
+
 const initialState: GmailState = {
   labels: [],
   selectedLabel: null,
@@ -35,96 +39,184 @@ export const fetchLabels = createAsyncThunk(
   'gmail/fetchLabels',
   async (userEmail: string, { rejectWithValue, signal, dispatch }) => {
     try {
-      // Stale-while-revalidate: Return cached data immediately if available
+      // Always try to get cached data first
       const cached = await indexedDBService.getLabels(userEmail);
-      if (cached && cached.data.length > 0) {
-        // Return cached data immediately (even if stale)
-        const labels = cached.data;
+      const isOffline = !navigator.onLine;
 
-        // If cache is stale, fetch fresh data in background
-        if (cached.isStale) {
-          gmailService.getLabels(signal)
-            .then(freshLabels => {
-              // Update cache with fresh data
-              indexedDBService.setLabels(userEmail, freshLabels).catch(console.error);
-              // Dispatch update to refresh UI with fresh data
-              dispatch(setLabels(freshLabels));
-            })
-            .catch(console.error);
+      // If we have cache
+      if (cached && cached.data.length > 0) {
+        log(`[Cache] Labels HIT - ${cached.data.length} labels, stale: ${cached.isStale}, offline: ${isOffline}`);
+
+        // If offline, just return cache (don't try network)
+        if (isOffline) {
+          log('[Cache] Offline - using cached labels');
+          return cached.data;
         }
 
-        return labels;
+        // If online and cache is stale, fetch fresh data in background
+        if (cached.isStale) {
+          log('[Cache] Fetching fresh labels in background...');
+          gmailService.getLabels(signal)
+            .then(freshLabels => {
+              indexedDBService.setLabels(userEmail, freshLabels).catch(console.error);
+              dispatch(setLabels(freshLabels));
+            })
+            .catch(err => {
+              console.warn('[IndexedDB] Background refresh failed:', err.message);
+            });
+        }
+
+        return cached.data;
       }
 
-      // No cache - fetch from network
-      console.log('[IndexedDB] ❌ Labels CACHE MISS - Fetching from network...');
+      // No cache - check if offline
+      if (isOffline) {
+        log('[Cache] Offline with no cache for labels');
+        return rejectWithValue('You are offline. Labels will load when you reconnect.');
+      }
+
+      // No cache and online - fetch from network
+      log('[Cache] Labels MISS - fetching from network');
       const networkStart = performance.now();
       const labels = await gmailService.getLabels(signal);
       const networkTime = performance.now() - networkStart;
-      console.log(`[IndexedDB] 🌐 Labels fetched from network (${networkTime.toFixed(0)}ms) - Saving to cache...`);
+      log(`[Cache] Labels fetched (${networkTime.toFixed(0)}ms)`);
+
       // Store in cache for next time
       indexedDBService.setLabels(userEmail, labels).catch(console.error);
       return labels;
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch labels');
+      // Network error - try to fallback to any available cache
+      console.warn('[IndexedDB] Network error, trying cache fallback:', error.message);
+      try {
+        const fallbackCache = await indexedDBService.getLabels(userEmail);
+        if (fallbackCache && fallbackCache.data.length > 0) {
+          log('[Cache] Using labels fallback');
+          return fallbackCache.data;
+        }
+      } catch {
+        // Cache access failed too
+      }
+
+      return rejectWithValue(
+        !navigator.onLine
+          ? 'You are offline. Please connect to the internet.'
+          : error.message || 'Failed to fetch labels'
+      );
     }
   }
 );
+
 
 export const fetchMessages = createAsyncThunk(
   'gmail/fetchMessages',
   async ({ labelId, pageToken, limit = appConfig.gmail.defaultPageLimit, userEmail, forceRefresh = false }: { labelId: string; pageToken?: string; limit?: number; userEmail: string; forceRefresh?: boolean }, { rejectWithValue, signal, dispatch }) => {
+    const isOffline = !navigator.onLine;
+
     try {
       const startTime = performance.now();
-      // Only use cache for first page (no pageToken) and when not forcing refresh
-      if (!pageToken && !forceRefresh) {
-        // Stale-while-revalidate: Return cached data immediately if available
+
+      // For first page (no pageToken), try cache first
+      if (!pageToken) {
         const cached = await indexedDBService.getEmails(userEmail, labelId);
+
         if (cached && cached.data.length > 0) {
           const cacheTime = performance.now() - startTime;
-          console.log(`[IndexedDB] ✅ Messages CACHE HIT for ${labelId} (${cacheTime.toFixed(0)}ms) - ${cached.data.length} emails - Stale: ${cached.isStale}`);
-          // Return cached data immediately (even if stale)
+          log(`[Cache] Messages HIT for ${labelId} (${cacheTime.toFixed(0)}ms) - ${cached.data.length} emails`);
+
           const cachedResponse = {
             messages: cached.data,
-            nextPageToken: null, // Cache doesn't store pagination
+            nextPageToken: null,
           };
 
-          // If cache is stale, fetch fresh data in background
-          if (cached.isStale) {
-            console.log(`[IndexedDB] 🔄 Fetching fresh messages for ${labelId} in background...`);
-            gmailService.getMessages(labelId, pageToken, limit, signal)
-              .then(freshResponse => {
-                console.log(`[IndexedDB] ✨ Background fetch complete for ${labelId} - ${freshResponse.messages.length} emails`);
-                // Update cache with fresh data
-                indexedDBService.setEmails(userEmail, labelId, freshResponse.messages).catch(console.error);
-                // Dispatch update to refresh UI with fresh data
-                dispatch(updateMessages(freshResponse));
-              })
-              .catch(console.error);
+          // If offline, just return cache
+          if (isOffline) {
+            log(`[Cache] Offline - using cached messages for ${labelId}`);
+            return cachedResponse;
           }
 
-          return cachedResponse;
+          // If forceRefresh requested but we're online, don't use cache
+          if (forceRefresh) {
+            log(`[Cache] Force refresh for ${labelId}`);
+            // Continue to network fetch below
+          } else {
+            // If online and cache is stale, fetch fresh data in background
+            if (cached.isStale) {
+              log(`[Cache] Fetching fresh messages for ${labelId} in background`);
+              gmailService.getMessages(labelId, undefined, limit, signal)
+                .then(freshResponse => {
+                  log(`[Cache] Background fetch complete for ${labelId}`);
+                  indexedDBService.setEmails(userEmail, labelId, freshResponse.messages).catch(console.error);
+                  dispatch(updateMessages(freshResponse));
+                })
+                .catch(err => {
+                  console.warn(`[IndexedDB] Background refresh failed for ${labelId}:`, err.message);
+                });
+            }
+
+            return cachedResponse;
+          }
         }
       }
 
-      // No cache, pagination, or force refresh - fetch from network
+      // Check if offline before attempting network request
+      if (isOffline) {
+        log(`[Cache] Offline with no cache for ${labelId}`);
+
+        // Try to get any cache as last resort
+        const fallbackCache = await indexedDBService.getEmails(userEmail, labelId);
+        if (fallbackCache && fallbackCache.data.length > 0) {
+          log(`[Cache] Using fallback for ${labelId}`);
+          return {
+            messages: fallbackCache.data,
+            nextPageToken: null,
+          };
+        }
+
+        return rejectWithValue('You are offline. Emails will load when you reconnect.');
+      }
+
+      // Online - fetch from network
       const reason = forceRefresh ? 'FORCE REFRESH' : pageToken ? 'PAGINATION' : 'CACHE MISS';
-      console.log(`[IndexedDB] ❌ Messages ${reason} for ${labelId} - Fetching from network...`);
+      log(`[Cache] Messages ${reason} for ${labelId} - fetching from network`);
       const networkStart = performance.now();
       const response = await gmailService.getMessages(labelId, pageToken, limit, signal);
       const networkTime = performance.now() - networkStart;
-      console.log(`[IndexedDB] 🌐 Messages fetched from network (${networkTime.toFixed(0)}ms) - ${response.messages.length} emails`);
+      log(`[Cache] Messages fetched (${networkTime.toFixed(0)}ms) - ${response.messages.length} emails`);
+
       // Store in cache for next time (only first page)
       if (!pageToken) {
-        console.log(`[IndexedDB] 💾 Saving ${response.messages.length} messages to cache for ${labelId}...`);
+        log(`[Cache] Saving ${response.messages.length} messages to cache for ${labelId}`);
         indexedDBService.setEmails(userEmail, labelId, response.messages).catch(console.error);
       }
-      return response;
+
+      return { ...response, isCacheHit: false };
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to fetch messages');
+      console.warn(`[IndexedDB] Network error for ${labelId}, trying cache fallback:`, error.message);
+
+      // Network error - try to fallback to cache
+      try {
+        const fallbackCache = await indexedDBService.getEmails(userEmail, labelId);
+        if (fallbackCache && fallbackCache.data.length > 0) {
+          log(`[Cache] Using fallback for ${labelId}`);
+          return {
+            messages: fallbackCache.data,
+            nextPageToken: null,
+          };
+        }
+      } catch (cacheError) {
+        console.error('Cache fallback failed:', cacheError);
+      }
+
+      return rejectWithValue(
+        !navigator.onLine
+          ? 'You are offline. Please connect to the internet.'
+          : error.message || 'Failed to fetch messages'
+      );
     }
   }
 );
+
 
 // For infinite scroll - appends messages instead of replacing
 export const fetchMoreMessages = createAsyncThunk(
@@ -140,10 +232,51 @@ export const fetchMoreMessages = createAsyncThunk(
 
 export const fetchMessage = createAsyncThunk(
   'gmail/fetchMessage',
-  async (messageId: string, { rejectWithValue, signal }) => {
+  async ({ messageId, userEmail }: { messageId: string; userEmail: string }, { rejectWithValue, signal, dispatch }) => {
     try {
-      return await gmailService.getMessage(messageId, signal);
+      // Try to get from cache first (stale-while-revalidate)
+      const cached = await indexedDBService.getIndividualEmail(userEmail, messageId);
+
+      if (cached && cached.data) {
+        log(`[Cache] Individual email HIT for ${messageId}`);
+
+        // If cache is stale and online, fetch fresh in background
+        if (cached.isStale && navigator.onLine) {
+          gmailService.getMessage(messageId, signal)
+            .then(freshEmail => {
+              log(`[Cache] Background fetch complete for message ${messageId}`);
+              indexedDBService.setIndividualEmail(userEmail, freshEmail).catch(console.error);
+              dispatch(setSelectedMessage(freshEmail));
+            })
+            .catch(console.error);
+        }
+
+        return cached.data;
+      }
+
+      // Check if offline with no cache
+      if (!navigator.onLine) {
+        log(`[Cache] Offline with no cache for message ${messageId}`);
+        return rejectWithValue('You are offline and this email is not cached');
+      }
+
+      // No cache - fetch from network
+      log(`[Cache] Individual email MISS for ${messageId}`);
+      const email = await gmailService.getMessage(messageId, signal);
+
+      // Cache for future offline access
+      indexedDBService.setIndividualEmail(userEmail, email).catch(console.error);
+
+      return email;
     } catch (error: any) {
+      // If network error and we're offline, try cache as last resort
+      if (!navigator.onLine) {
+        const cached = await indexedDBService.getIndividualEmail(userEmail, messageId);
+        if (cached?.data) {
+          log(`[Cache] Using stale cache for ${messageId}`);
+          return cached.data;
+        }
+      }
       return rejectWithValue(error.message || 'Failed to fetch message');
     }
   }

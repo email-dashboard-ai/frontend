@@ -5,6 +5,7 @@ interface UseKeyboardNavigationOptions {
   messages: ParsedEmail[];
   selectedMessage: ParsedEmail | null;
   onSelectMessage: (message: ParsedEmail | null) => void;
+  onClearSelection?: () => void;  // NEW: Callback to clear checkboxes
   onDeleteMessage?: (messageId: string) => void;
   onToggleStar?: (messageId: string, isStarred: boolean) => void;
   onFocusSearch?: () => void;
@@ -19,6 +20,7 @@ export const useKeyboardNavigation = ({
   messages,
   selectedMessage,
   onSelectMessage,
+  onClearSelection,
   onDeleteMessage,
   onToggleStar,
   onFocusSearch,
@@ -42,10 +44,17 @@ export const useKeyboardNavigation = ({
   // Check if user is typing in an input field
   const isTyping = useCallback(() => {
     const active = document.activeElement;
-    if (!active) return false;
+    if (!active || active === document.body) return false;
+
     const tagName = active.tagName.toLowerCase();
+
+    if (tagName === 'input') {
+      const type = (active as HTMLInputElement).type;
+      // Only block shortcuts for text-entry inputs
+      return ['text', 'password', 'email', 'search', 'number', 'tel', 'url'].includes(type);
+    }
+
     return (
-      tagName === 'input' ||
       tagName === 'textarea' ||
       (active as HTMLElement).isContentEditable
     );
@@ -54,6 +63,31 @@ export const useKeyboardNavigation = ({
   // Handle keyboard events
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
+      // Always allow Escape to work
+      if (e.key === 'Escape') {
+        e.preventDefault();
+
+        // If typing, blur the input
+        if (isTyping()) {
+          const active = document.activeElement as HTMLElement;
+          if (active) {
+            // Force blur with timeout to ensure UI updates
+            setTimeout(() => active.blur(), 0);
+          }
+          return;
+        }
+
+        // If not typing, deselect message AND clear checkbox selection
+        if (enabled) {
+          onSelectMessage(null);
+          if (onClearSelection) {
+            onClearSelection();
+          }
+          setState({ focusedIndex: -1 });
+        }
+        return;
+      }
+
       if (!enabled || isTyping()) return;
 
       const { key } = e;
@@ -66,14 +100,14 @@ export const useKeyboardNavigation = ({
           if (messagesCount === 0) return;
           e.preventDefault();
           setState(prev => {
-            const newIndex = prev.focusedIndex < messagesCount - 1
+            const nextIndex = prev.focusedIndex < messagesCount - 1
               ? prev.focusedIndex + 1
               : 0;
-            const message = messages[newIndex];
+            const message = messages[nextIndex];
             if (message) {
               onSelectMessage(message);
             }
-            return { focusedIndex: newIndex };
+            return { focusedIndex: nextIndex };
           });
           break;
 
@@ -83,22 +117,15 @@ export const useKeyboardNavigation = ({
           if (messagesCount === 0) return;
           e.preventDefault();
           setState(prev => {
-            const newIndex = prev.focusedIndex > 0
+            const prevIndex = prev.focusedIndex > 0
               ? prev.focusedIndex - 1
               : messagesCount - 1;
-            const message = messages[newIndex];
+            const message = messages[prevIndex];
             if (message) {
               onSelectMessage(message);
             }
-            return { focusedIndex: newIndex };
+            return { focusedIndex: prevIndex };
           });
-          break;
-
-        // Close/Deselect: Escape
-        case 'Escape':
-          e.preventDefault();
-          onSelectMessage(null);
-          setState({ focusedIndex: -1 });
           break;
 
         // Star: s
@@ -120,9 +147,14 @@ export const useKeyboardNavigation = ({
             if (message && onDeleteMessage) {
               onDeleteMessage(message.id);
               // Move to next email after delete
-              setState(prev => ({
-                focusedIndex: Math.min(prev.focusedIndex, messagesCount - 2),
-              }));
+              const nextIndex = Math.min(state.focusedIndex, messagesCount - 2);
+              setState({ focusedIndex: nextIndex });
+              // Select the new message at this index if possible
+              if (nextIndex >= 0 && messages[nextIndex]) {
+                onSelectMessage(messages[nextIndex]);
+              } else {
+                onSelectMessage(null);
+              }
             }
           }
           break;
@@ -139,7 +171,7 @@ export const useKeyboardNavigation = ({
           break;
       }
     },
-    [enabled, isTyping, messages, state.focusedIndex, onSelectMessage, onDeleteMessage, onToggleStar, onFocusSearch]
+    [enabled, isTyping, messages, state.focusedIndex, onSelectMessage, onDeleteMessage, onToggleStar, onFocusSearch, onClearSelection]
   );
 
   // Add/remove event listener

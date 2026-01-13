@@ -114,7 +114,7 @@ class AuthService {
     return data.data;
   }
 
-  async logout(): Promise<void> {
+  async logout(userEmail?: string): Promise<void> {
     try {
       const config = apiConfig.getConfig();
       await api.post(config.endpoints.auth.logout);
@@ -123,8 +123,24 @@ class AuthService {
     } finally {
       // Clear refresh token from persist
       localStorage.removeItem("persist:auth");
+
+      // Clear IndexedDB cache for security
+      if (userEmail) {
+        try {
+          const { indexedDBService } = await import('./indexedDBService');
+          const { encryptionService } = await import('./encryptionService');
+
+          await indexedDBService.clearAllUserData(userEmail);
+          encryptionService.clear();
+
+          console.log('[Auth] 🗑️ User cache and encryption keys cleared');
+        } catch (cacheError) {
+          console.error('Failed to clear user cache:', cacheError);
+        }
+      }
     }
   }
+
 
   getUserFromAccessToken(accessToken: string): User {
     return this.getUserFromToken(accessToken);

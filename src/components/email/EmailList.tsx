@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { fetchUserProfiles } from '../../store/slices/gmailSlice';
-import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare, Clock, BellOff, Inbox, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Mail, Loader2, Star, Trash2, Paperclip, Square, CheckSquare, MailOpen, MinusSquare, Clock, BellOff, Inbox, AlertTriangle, WifiOff } from 'lucide-react';
 import EmailContextMenu from './EmailContextMenu';
 import SnoozeDatePicker from './SnoozeDatePicker';
 import UserAvatar from '../common/UserAvatar';
 import ConfirmationModal from '../common/ConfirmationModal';
+import { useIsOffline } from '../../hooks/useOffline';
 
 interface EmailListProps {
   listWidth: number;
@@ -63,7 +64,7 @@ const EmailList: React.FC<EmailListProps> = ({
   snoozedInfo,
   onUnsnooze,
   onMoveToInbox,
-  onPermanentlyDelete
+  onPermanentlyDelete,
 }) => {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; emailId: string } | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -71,6 +72,7 @@ const EmailList: React.FC<EmailListProps> = ({
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; ids: string[]; isBulk: boolean }>({ show: false, ids: [], isBulk: false });
   const dispatch = useAppDispatch();
   const { knownUsers } = useAppSelector(state => state.gmail);
+  const isOffline = useIsOffline();
   const isInTrash = selectedLabel?.id === 'TRASH';
   const isInSpam = selectedLabel?.id === 'SPAM';
   const isInSnoozed = selectedLabel?.name === 'SNOOZED';
@@ -78,6 +80,22 @@ const EmailList: React.FC<EmailListProps> = ({
   const isInDraft = selectedLabel?.id === 'DRAFT';
   // Hide star in Trash, Spam, Sent, Draft
   const showStarButton = !isInTrash && !isInSpam && !isInSent && !isInDraft;
+
+  React.useEffect(() => {
+    if (messages.length > 0) {
+      const uniqueSenders = Array.from(new Set(messages.map(msg => {
+        const match = msg.from.match(/<(.+)>/);
+        return match ? match[1] : msg.from;
+      })));
+
+      const unknownEmails = uniqueSenders.filter(email => !knownUsers?.[email]);
+
+      if (unknownEmails.length > 0) {
+        dispatch(fetchUserProfiles(unknownEmails));
+      }
+    }
+  }, [messages, dispatch, knownUsers]);
+
 
   const formatSnoozeUntil = (dateString: string) => {
     const date = new Date(dateString);
@@ -99,20 +117,7 @@ const EmailList: React.FC<EmailListProps> = ({
     }
   };
 
-  React.useEffect(() => {
-    if (messages.length > 0) {
-      const uniqueSenders = Array.from(new Set(messages.map(msg => {
-        const match = msg.from.match(/<(.+)>/);
-        return match ? match[1] : msg.from;
-      })));
 
-      const unknownEmails = uniqueSenders.filter(email => !knownUsers?.[email]);
-
-      if (unknownEmails.length > 0) {
-        dispatch(fetchUserProfiles(unknownEmails));
-      }
-    }
-  }, [messages, dispatch, knownUsers]);
 
   const extractEmail = (emailString: string) => {
     const match = emailString.match(/<(.+)>/);
@@ -153,6 +158,29 @@ const EmailList: React.FC<EmailListProps> = ({
   // Determine bulk action state based on the first selected item
   const firstSelectedMessage = filteredMessages.find(msg => selectedIds.has(msg.id));
   const isFirstSelectedRead = firstSelectedMessage?.isRead ?? false;
+
+  // Render empty state based on offline status
+  const renderEmptyState = () => {
+    if (isOffline) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full text-gray-500 p-6 text-center">
+          <WifiOff size={48} className="mb-4 text-yellow-500" />
+          <p className="text-lg font-medium mb-2">You're offline</p>
+          <p className="text-sm text-gray-400">
+            This folder wasn't cached while online.
+            <br />
+            Connect to the internet to load emails.
+          </p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4 text-center">
+        <Mail size={48} className="mb-3 opacity-50" />
+        <p>No emails in this folder</p>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -234,10 +262,14 @@ const EmailList: React.FC<EmailListProps> = ({
                 <span className="text-xs text-gray-500 whitespace-nowrap">{filteredMessages.length} emails</span>
                 <button
                   onClick={onRefresh}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Refresh"
+                  disabled={isOffline}
+                  className={`p-2 rounded-lg transition-colors ${isOffline
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'hover:bg-gray-100 text-gray-600'
+                    }`}
+                  title={isOffline ? "Can't refresh while offline" : "Refresh"}
                 >
-                  <RefreshCw size={18} className="text-gray-600" />
+                  <RefreshCw size={18} />
                 </button>
               </div>
             </div>
@@ -255,10 +287,7 @@ const EmailList: React.FC<EmailListProps> = ({
             <Loader2 className="animate-spin text-gray-400" size={32} />
           </div>
         ) : filteredMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 p-4 text-center">
-            <Mail size={48} className="mb-3 opacity-50" />
-            <p>No data available</p>
-          </div>
+          renderEmptyState()
         ) : (
           <>
             {sortedMessages?.map(message => (
