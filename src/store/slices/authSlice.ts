@@ -80,6 +80,14 @@ export const logout = createAsyncThunk(
       if (state.auth.refreshToken) {
         await authService.logout();
       }
+
+      // Broadcast logout to other tabs via BroadcastChannel
+      if ('BroadcastChannel' in window) {
+        const logoutChannel = new BroadcastChannel('auth-logout');
+        logoutChannel.postMessage('logout');
+        logoutChannel.close();
+        console.log('[Multi-tab Sync] Logout message broadcasted to other tabs');
+      }
     } catch (error) {
       // Log error but don't fail logout
       console.error("Logout error:", error);

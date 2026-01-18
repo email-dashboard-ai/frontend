@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthGuard, ProtectedRoute, PublicRoute } from '../components/auth';
+import { useMultiTabLogout } from '../hooks';
 
 // Lazily loaded pages for route-based code splitting
 const LoginPage = lazy(() => import('../pages/LoginPage'));
@@ -13,48 +14,60 @@ const EmailDashboard = lazy(() => import('../pages/EmailDashboard'));
 export const AppRoutes: React.FC = () => {
   return (
     <Router>
-      <AuthGuard>
-        <Suspense fallback={<div className="p-4 text-center">Loading...</div>}>
-          <Routes>
-            {/* Public routes */}
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <LoginPage />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <PublicRoute>
-                  <RegisterPage />
-                </PublicRoute>
-              }
-            />
-
-            {/* Protected routes */}
-            <Route
-              path="/inbox"
-              element={
-                <ProtectedRoute>
-                  <EmailDashboard />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Error routes */}
-            <Route path="/401" element={<UnauthenticatedPage />} />
-            <Route path="/403" element={<UnauthorizedPage />} />
-            <Route path="/404" element={<NotFoundPage />} />
-
-            {/* Redirects */}
-            <Route path="/" element={<Navigate to="/inbox" replace />} />
-            <Route path="*" element={<Navigate to="/404" replace />} />
-          </Routes>
-        </Suspense>
-      </AuthGuard>
+      <AppRoutesContent />
     </Router>
+  );
+};
+
+/**
+ * AppRoutesContent - Must be inside Router to use useNavigate from useMultiTabLogout
+ */
+const AppRoutesContent: React.FC = () => {
+  // Enable multi-tab logout synchronization
+  useMultiTabLogout();
+
+  return (
+    <AuthGuard>
+      <Suspense fallback={<div className="p-4 text-center">Loading...</div>}>
+        <Routes>
+          {/* Public routes */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <LoginPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <PublicRoute>
+                <RegisterPage />
+              </PublicRoute>
+            }
+          />
+
+          {/* Protected routes */}
+          <Route
+            path="/inbox"
+            element={
+              <ProtectedRoute>
+                <EmailDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Error routes */}
+          <Route path="/401" element={<UnauthenticatedPage />} />
+          <Route path="/403" element={<UnauthorizedPage />} />
+          <Route path="/404" element={<NotFoundPage />} />
+
+          {/* Redirects */}
+          <Route path="/" element={<Navigate to="/inbox" replace />} />
+          <Route path="*" element={<Navigate to="/404" replace />} />
+        </Routes>
+      </Suspense>
+    </AuthGuard>
   );
 };
