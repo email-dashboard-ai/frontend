@@ -5,6 +5,7 @@ interface UseKeyboardNavigationOptions {
   messages: ParsedEmail[];
   selectedMessage: ParsedEmail | null;
   onSelectMessage: (message: ParsedEmail | null) => void;
+  onNavigate?: (emailId: string | null) => void;
   onDeleteMessage?: (messageId: string) => void;
   onToggleStar?: (messageId: string, isStarred: boolean) => void;
   onFocusSearch?: () => void;
@@ -19,6 +20,7 @@ export const useKeyboardNavigation = ({
   messages,
   selectedMessage,
   onSelectMessage,
+  onNavigate,
   onDeleteMessage,
   onToggleStar,
   onFocusSearch,
@@ -72,6 +74,7 @@ export const useKeyboardNavigation = ({
             const message = messages[newIndex];
             if (message) {
               onSelectMessage(message);
+              onNavigate?.(message.id);
             }
             return { focusedIndex: newIndex };
           });
@@ -89,6 +92,7 @@ export const useKeyboardNavigation = ({
             const message = messages[newIndex];
             if (message) {
               onSelectMessage(message);
+              onNavigate?.(message.id);
             }
             return { focusedIndex: newIndex };
           });
@@ -98,6 +102,7 @@ export const useKeyboardNavigation = ({
         case 'Escape':
           e.preventDefault();
           onSelectMessage(null);
+          onNavigate?.(null);
           setState({ focusedIndex: -1 });
           break;
 
@@ -139,7 +144,7 @@ export const useKeyboardNavigation = ({
           break;
       }
     },
-    [enabled, isTyping, messages, state.focusedIndex, onSelectMessage, onDeleteMessage, onToggleStar, onFocusSearch]
+    [enabled, isTyping, messages, state.focusedIndex, onSelectMessage, onNavigate, onDeleteMessage, onToggleStar, onFocusSearch]
   );
 
   // Add/remove event listener
