@@ -107,6 +107,14 @@ const EmailDashboard: React.FC = () => {
         handleToggleRead(message.id, false);
       }
     },
+    onNavigate: (emailId) => {
+      // Update URL to reflect current selection
+      if (emailId) {
+        navigate(`?email=${emailId}`, { replace: true });
+      } else {
+        navigate('', { replace: true });
+      }
+    },
     onDeleteMessage: handleDeleteEmail,
     onToggleStar: handleToggleStar,
     onFocusSearch: () => {
@@ -165,7 +173,7 @@ const EmailDashboard: React.FC = () => {
     }
   }, [dispatch, user?.email]);
 
-  // Handle URL parameter for selected email
+  // Handle URL parameter for selected email (URL is single source of truth)
   useEffect(() => {
     const emailId = searchParams.get('email');
     if (emailId && messages.length > 0) {
@@ -177,6 +185,9 @@ const EmailDashboard: React.FC = () => {
           handleToggleRead(message.id, false);
         }
       }
+    } else if (!emailId && selectedMessage) {
+      // Clear selected message when URL has no email param (e.g., after ESC)
+      dispatch(setSelectedMessage(null));
     }
   }, [searchParams, messages, selectedMessage, dispatch, isMobile, handleToggleRead]);
 
