@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { ParsedEmail } from '../../types/gmail';
 import { Sparkles, ExternalLink, X, RefreshCw } from 'lucide-react';
 import { aiService } from '../../services/aiService';
@@ -97,9 +98,18 @@ const SummaryModal: React.FC<SummaryModalProps> = ({ email, summary, onClose, on
             </button>
           </div>
           <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
-              {isRegenerating ? 'Regenerating summary...' : (currentSummary || email.snippet || 'No summary available')}
-            </p>
+            {isRegenerating ? (
+              <p className="text-gray-700 leading-relaxed">Regenerating summary...</p>
+            ) : (
+              <div className="text-gray-700 leading-relaxed prose prose-sm max-w-none
+                prose-p:my-2 prose-ul:my-2 prose-li:my-1
+                prose-headings:font-semibold prose-headings:text-gray-900
+                prose-strong:text-gray-900 prose-strong:font-semibold">
+                <ReactMarkdown>
+                  {currentSummary || email.snippet || 'No summary available'}
+                </ReactMarkdown>
+              </div>
+            )}
           </div>
         </div>
 

@@ -41,6 +41,7 @@ const EmailDashboard: React.FC = () => {
 
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchRequest, setSearchRequest] = useState<{ body?: string }>({});
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
@@ -323,9 +324,13 @@ const EmailDashboard: React.FC = () => {
                   setSearchResults(results);
                   setIsSearchActive(true);
                 }}
+                onSearchRequest={(request) => {
+                  setSearchRequest(request);
+                }}
                 onClearSearch={() => {
                   setSearchResults([]);
                   setIsSearchActive(false);
+                  setSearchRequest({});
                 }}
                 isSearchActive={isSearchActive}
               />
@@ -424,10 +429,13 @@ const EmailDashboard: React.FC = () => {
             {isSearchActive ? (
               <SearchResults
                 results={searchResults}
+                searchQuery={searchRequest.body || ''}
                 onSelectResult={async (messageId) => {
                   try {
                     const message = await gmailService.getMessage(messageId);
                     dispatch(setSelectedMessage(message));
+                    // Update URL with email ID so it persists (URL is source of truth)
+                    navigate(`?email=${messageId}`, { replace: true });
                     if (isMobile) setIsMobileDetailView(true);
                   } catch (e) {
                     console.error('Failed to load message', e);

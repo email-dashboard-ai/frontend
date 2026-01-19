@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import { ParsedEmail, GmailLabel } from '../../types/gmail';
 import { gmailService } from '../../services/gmailService';
 import { aiService } from '../../services/aiService';
@@ -254,11 +255,18 @@ const EmailDetail: React.FC<EmailDetailProps> = ({
               {isRegenerating ? 'Regenerating...' : 'Regenerate'}
             </button>
           </div>
-          <p className="text-sm text-gray-700 leading-relaxed">
-            {isLoadingSummary
-              ? 'Generating summary...'
-              : (aiSummary || selectedMessage.snippet || 'No summary available')}
-          </p>
+          {isLoadingSummary ? (
+            <p className="text-sm text-gray-700 leading-relaxed">Generating summary...</p>
+          ) : (
+            <div className="text-sm text-gray-700 leading-relaxed prose prose-sm max-w-none
+              prose-p:my-1 prose-ul:my-1 prose-li:my-0.5
+              prose-headings:font-semibold prose-headings:text-gray-900
+              prose-strong:text-gray-900 prose-strong:font-semibold">
+              <ReactMarkdown>
+                {aiSummary || selectedMessage.snippet || 'No summary available'}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
 
         {/* Thread Participants Summary (Optional, using first message for now) */}

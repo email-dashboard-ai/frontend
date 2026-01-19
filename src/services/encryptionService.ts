@@ -126,9 +126,17 @@ class EncryptionService {
 
   /**
    * Convert ArrayBuffer to Base64 string
+   * Uses chunking to avoid "too many arguments" error for large buffers
    */
   private arrayBufferToBase64(buffer: Uint8Array): string {
-    const binary = String.fromCharCode(...buffer);
+    const CHUNK_SIZE = 8192; // Process 8KB at a time
+    let binary = '';
+
+    for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
+      const chunk = buffer.subarray(i, Math.min(i + CHUNK_SIZE, buffer.length));
+      binary += String.fromCharCode(...chunk);
+    }
+
     return btoa(binary);
   }
 

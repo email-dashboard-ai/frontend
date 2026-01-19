@@ -1,16 +1,17 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Search, Filter, X, Calendar, Paperclip, Mail, Star, AlertCircle, Loader2, User, Hash, Clock } from 'lucide-react';
+import { Search, Filter, X, Calendar, Paperclip, Mail, Star, AlertCircle, Loader2, User, Hash, Clock, Sparkles } from 'lucide-react';
 import { gmailService } from '../../services/gmailService';
 import type { SearchRequest, SearchResult } from '../../types/gmail';
 import { useSearchSuggestions, SearchSuggestion } from '../../hooks/useSearchSuggestions';
 
 interface SearchPanelProps {
     onSearchResults: (results: SearchResult[]) => void;
+    onSearchRequest: (request: SearchRequest) => void;
     onClearSearch: () => void;
     isSearchActive: boolean;
 }
 
-const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearch, isSearchActive }) => {
+const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onSearchRequest, onClearSearch, isSearchActive }) => {
     const [showFilters, setShowFilters] = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
@@ -83,6 +84,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                 return;
             }
             onSearchResults(results);
+            onSearchRequest(requestToUse);
         } catch (error) {
             if (abortControllerRef.current?.signal.aborted) {
                 console.log('Search cancelled by user');
@@ -271,6 +273,27 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                         <X size={19} />
                     </button>
                 )}
+
+                {/* Fuzzy Search Toggle (Moved to main bar) */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        updateField('useFuzzySearch', !searchRequest.useFuzzySearch);
+                    }}
+                    className={`p-2 rounded-full transition-all duration-200 relative mr-1 group/fuzzy ${searchRequest.useFuzzySearch
+                        ? 'bg-purple-100 text-purple-600 shadow-sm'
+                        : 'text-gray-400 hover:bg-gray-200 hover:text-gray-600'
+                        }`}
+                    title={searchRequest.useFuzzySearch ? "Fuzzy search (Typo tolerance) ON" : "Turn on Fuzzy search (Typo tolerance)"}
+                >
+                    <Sparkles size={19} className={searchRequest.useFuzzySearch ? 'animate-pulse' : ''} />
+                    {searchRequest.useFuzzySearch && (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                        </span>
+                    )}
+                </button>
 
                 {/* Filter Toggle */}
                 <button
@@ -485,6 +508,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onClearSearc
                             <span className="text-sm text-gray-600">Important</span>
                         </label>
                     </div>
+
+
 
                     <div className="flex justify-between items-center mt-6 pt-4 border-t border-gray-100">
                         <button
