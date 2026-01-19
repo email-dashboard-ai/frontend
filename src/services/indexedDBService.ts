@@ -72,13 +72,6 @@ class IndexedDBService {
     }
 
     /**
-     * Check if cached data is still valid
-     */
-    private isValidCache(timestamp: number): boolean {
-        return Date.now() - timestamp < CACHE_DURATION;
-    }
-
-    /**
      * Store emails in IndexedDB
      */
     async setEmails(
@@ -153,7 +146,9 @@ class IndexedDBService {
                     // Decrypt email data
                     const decryptedData = await encryptionService.decrypt<ParsedEmail[]>(entry.data);
 
-                    const isStale = !this.isValidCache(entry.timestamp);
+                    // Smart invalidation: Cache never expires based on time
+                    // Only invalidated manually on user actions (delete, move, refresh)
+                    const isStale = false;
                     resolve({
                         data: decryptedData,
                         isStale,
@@ -239,7 +234,8 @@ class IndexedDBService {
                     // Decrypt label data
                     const decryptedData = await encryptionService.decrypt<GmailLabel[]>(entry.data);
 
-                    const isStale = !this.isValidCache(entry.timestamp);
+                    // Smart invalidation: Cache never expires based on time
+                    const isStale = false;
                     resolve({
                         data: decryptedData,
                         isStale,
@@ -373,5 +369,6 @@ class IndexedDBService {
 
 export const indexedDBService = new IndexedDBService();
 
-// Auto-cleanup expired cache on load
-indexedDBService.clearExpiredCache().catch(console.error);
+// Note: Auto-cleanup disabled for smart cache invalidation
+// Cache persists until manually invalidated via user actions
+// To manually cleanup: indexedDBService.clearExpiredCache()

@@ -119,9 +119,9 @@ console.log(
 
 ---
 
-### 2. **IndexedDB Caching with Stale-While-Revalidate**
+### 2. **IndexedDB Smart Caching**
 
-Client-side persistent cache for instant email loading.
+Client-side persistent cache with intelligent invalidation for instant email loading.
 
 #### Architecture
 
@@ -139,17 +139,17 @@ Client-side persistent cache for instant email loading.
 ┌─────────────────────┐         ┌─────────────────────────┐
 │  Return Cached Data │         │   Fetch from Network    │
 │  (Show immediately) │         │   ~500-2000ms           │
-└─────────────────────┘         └─────────────────────────┘
-         ↓                                 ↓
-┌─────────────────────┐         ┌─────────────────────────┐
-│  Check if Stale     │         │   Save to Cache         │
-│  TTL: 5 minutes     │         │   Return data           │
-└─────────────────────┘         └─────────────────────────┘
-         ↓ Stale
-┌─────────────────────┐
-│ Background Refresh  │
-│ (Update silently)   │
-└─────────────────────┘
+│  ✅ Never expires!  │         └─────────────────────────┘
+└─────────────────────┘                    ↓
+                              ┌─────────────────────────┐
+                              │   Save to Cache         │
+                              │   Return data           │
+                              └─────────────────────────┘
+
+Cache invalidates ONLY on:
+  • Manual refresh
+  • Delete/move email
+  • User logout
 ```
 
 #### Implementation
@@ -176,11 +176,12 @@ Client-side persistent cache for instant email loading.
 
 **Features**:
 
--  Encrypted data storage (AES-GCM)
--  Automatic expiry (5 minutes TTL)
--  Max 2000 entries (LRU eviction)
--  Per-user isolation
--  Compound indexes for fast lookups
+- ✅ Encrypted data storage (AES-GCM)
+- ✅ **Smart invalidation** (no time-based expiry)
+- ✅ Persists indefinitely until user action
+- ✅ Per-user isolation
+- ✅ Compound indexes for fast lookups
+- ✅ Auto-invalidation on delete/move/refresh
 
 **Redux Integration**: `gmailSlice.ts`
 
