@@ -5,7 +5,7 @@
 
 class EncryptionService {
   private key: CryptoKey | null = null;
-  private readonly ALGORITHM = 'AES-GCM';
+  private readonly ALGORITHM = "AES-GCM";
   private readonly KEY_LENGTH = 256;
   private readonly IV_LENGTH = 12; // 96 bits for GCM
 
@@ -20,30 +20,30 @@ class EncryptionService {
       // Derive key from user identifier using PBKDF2
       const encoder = new TextEncoder();
       const keyMaterial = await window.crypto.subtle.importKey(
-        'raw',
+        "raw",
         encoder.encode(userIdentifier),
-        'PBKDF2',
+        "PBKDF2",
         false,
-        ['deriveBits', 'deriveKey']
+        ["deriveBits", "deriveKey"],
       );
 
       // Use fixed salt (in production, should be stored per-user)
-      const salt = encoder.encode('email-client-salt-2026');
+      const salt = encoder.encode("email-client-salt-2026");
 
       this.key = await window.crypto.subtle.deriveKey(
         {
-          name: 'PBKDF2',
+          name: "PBKDF2",
           salt,
           iterations: 100000,
-          hash: 'SHA-256',
+          hash: "SHA-256",
         },
         keyMaterial,
         { name: this.ALGORITHM, length: this.KEY_LENGTH },
         false,
-        ['encrypt', 'decrypt']
+        ["encrypt", "decrypt"],
       );
     } catch (error) {
-      console.error('Failed to initialize encryption:', error);
+      console.error("Failed to initialize encryption:", error);
       throw error;
     }
   }
@@ -53,7 +53,9 @@ class EncryptionService {
    */
   async encrypt<T>(data: T): Promise<string> {
     if (!this.key) {
-      throw new Error('Encryption key not initialized. Call initialize() first.');
+      throw new Error(
+        "Encryption key not initialized. Call initialize() first.",
+      );
     }
 
     try {
@@ -72,7 +74,7 @@ class EncryptionService {
           iv,
         },
         this.key,
-        dataBuffer
+        dataBuffer,
       );
 
       // Combine IV + encrypted data
@@ -83,7 +85,7 @@ class EncryptionService {
       // Convert to base64 for storage
       return this.arrayBufferToBase64(combined);
     } catch (error) {
-      console.error('Encryption failed:', error);
+      console.error("Encryption failed:", error);
       throw error;
     }
   }
@@ -93,7 +95,9 @@ class EncryptionService {
    */
   async decrypt<T>(encryptedData: string): Promise<T> {
     if (!this.key) {
-      throw new Error('Encryption key not initialized. Call initialize() first.');
+      throw new Error(
+        "Encryption key not initialized. Call initialize() first.",
+      );
     }
 
     try {
@@ -111,7 +115,7 @@ class EncryptionService {
           iv,
         },
         this.key,
-        encryptedBuffer
+        encryptedBuffer,
       );
 
       // Convert back to JSON
@@ -119,22 +123,22 @@ class EncryptionService {
       const jsonString = decoder.decode(decryptedBuffer);
       return JSON.parse(jsonString);
     } catch (error) {
-      console.error('Decryption failed:', error);
+      console.error("Decryption failed:", error);
       throw error;
     }
   }
 
   /**
    * Convert ArrayBuffer to Base64 string
-   * Uses chunking to avoid "too many arguments" error for large buffers
+   * Process in chunks to avoid stack overflow with large buffers
    */
   private arrayBufferToBase64(buffer: Uint8Array): string {
-    const CHUNK_SIZE = 8192; // Process 8KB at a time
-    let binary = '';
+    const CHUNK_SIZE = 0x8000; // 32KB chunks
+    let binary = "";
 
     for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
       const chunk = buffer.subarray(i, Math.min(i + CHUNK_SIZE, buffer.length));
-      binary += String.fromCharCode(...chunk);
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
     }
 
     return btoa(binary);

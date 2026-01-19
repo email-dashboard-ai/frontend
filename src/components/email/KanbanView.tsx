@@ -1,11 +1,17 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { ParsedEmail, GmailLabel } from '../../types/gmail';
-import { Star, CheckCircle2, Inbox as InboxIcon } from 'lucide-react';
-import { aiService } from '../../services/aiService';
-import SnoozeDatePicker from './SnoozeDatePicker';
-import SnoozeModal from './SnoozeModal';
-import SummaryModal from './SummaryModal';
-import KanbanColumn from './kanban/KanbanColumn';
+import React, { useState, useCallback, useEffect } from "react";
+import { ParsedEmail, GmailLabel } from "../../types/gmail";
+import { Settings } from "lucide-react";
+import { aiService } from "../../services/aiService";
+import { kanbanService } from "../../services/kanbanService";
+import { api } from "../../config/apiConfig";
+import { KanbanColumn as KanbanColumnType } from "../../types/kanban";
+import { indexedDBService } from "../../services/indexedDBService";
+import SnoozeDatePicker from "./SnoozeDatePicker";
+import SnoozeModal from "./SnoozeModal";
+import SummaryModal from "./SummaryModal";
+import KanbanColumnCard from "./kanban/KanbanColumn";
+import KanbanSettingsModal from "../kanban/KanbanSettingsModal";
+import toast from "react-hot-toast";
 
 interface KanbanViewProps {
   messages: ParsedEmail[];
@@ -13,9 +19,10 @@ interface KanbanViewProps {
   kanbanStatuses: Record<string, string>;
   onMessageClick: (message: ParsedEmail) => void;
   onToggleStar: (id: string, isStarred: boolean) => void;
-  onUpdateStatus: (id: string, newStatus: 'inbox' | 'important' | 'done') => void;
   onSnooze?: (emailId: string, snoozedUntil: string) => void;
   onLoadMore?: () => void;
+  isLoading?: boolean;
+  onMessagesChange?: (messages: ParsedEmail[]) => void;
 }
 
 const KanbanView: React.FC<KanbanViewProps> = ({
@@ -23,19 +30,39 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   labels,
   kanbanStatuses,
   onMessageClick,
-  // onToggleStar, // Unused in this view logic currently
-  onUpdateStatus,
+  onToggleStar,
   onSnooze,
-  onLoadMore
+  onLoadMore,
+  isLoading,
+  onMessagesChange,
 }) => {
-  // AI Summary State
-  const [summariesById, setSummariesById] = useState<Record<string, string>>({});
-  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
-  const [modalEmail, setModalEmail] = useState<ParsedEmail | null>(null); // For AI Summary Modal
-  const [snoozeModalEmail, setSnoozeModalEmail] = useState<ParsedEmail | null>(null); // For Snooze Options Modal
-  const [customSnoozeEmail, setCustomSnoozeEmail] = useState<ParsedEmail | null>(null); // For Date Picker
+  // Dynamic Columns State
+  const [columns, setColumns] = useState<KanbanColumnType[]>([]);
+  const [loadingColumns, setLoadingColumns] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [movingEmailId, setMovingEmailId] = useState<string | null>(null);
 
-  // Refs to keep track of latest state without triggering re-creation of callbacks
+  // Local state for immediate UI updates
+  const [localMessages, setLocalMessages] = useState<ParsedEmail[]>(messages);
+
+  // Sync local state when props change
+  useEffect(() => {
+    setLocalMessages(messages);
+  }, [messages]);
+
+  // AI Summary State
+  const [summariesById, setSummariesById] = useState<Record<string, string>>(
+    {},
+  );
+  const [loadingIds, setLoadingIds] = useState<Set<string>>(new Set());
+  const [modalEmail, setModalEmail] = useState<ParsedEmail | null>(null);
+  const [snoozeModalEmail, setSnoozeModalEmail] = useState<ParsedEmail | null>(
+    null,
+  );
+  const [customSnoozeEmail, setCustomSnoozeEmail] =
+    useState<ParsedEmail | null>(null);
+
+  // Refs to keep track of latest state
   const summariesRef = React.useRef(summariesById);
   const loadingIdsRef = React.useRef(loadingIds);
   const messagesRef = React.useRef(messages);
@@ -46,140 +73,293 @@ const KanbanView: React.FC<KanbanViewProps> = ({
     messagesRef.current = messages;
   }, [summariesById, loadingIds, messages]);
 
+  // Fetch columns on mount
+  useEffect(() => {
+    fetchColumns();
+  }, []);
+
+  const fetchColumns = async () => {
+    try {
+      setLoadingColumns(true);
+      const fetchedColumns = await kanbanService.getColumns();
+      setColumns(fetchedColumns);
+    } catch (error) {
+      console.error("Failed to fetch Kanban columns:", error);
+      toast.error("Failed to load Kanban columns");
+    } finally {
+      setLoadingColumns(false);
+    }
+  };
+
   const handleShowSummaryModal = useCallback((email: ParsedEmail) => {
     setModalEmail(email);
   }, []);
 
   const handleCardVisible = useCallback(async (emailId: string) => {
-    // Check against refs to avoid closure staleness without dependency updates
-    if (summariesRef.current[emailId] || loadingIdsRef.current.has(emailId)) return;
+    if (summariesRef.current[emailId] || loadingIdsRef.current.has(emailId))
+      return;
 
-    const email = messagesRef.current.find(m => m.id === emailId);
+    const email = messagesRef.current.find((m) => m.id === emailId);
     if (!email) return;
 
-    // Skip if email is too short to summarize
-    if ((email.snippet?.length || 0) < 50 && (email.body?.length || 0) < 100) return;
+    if ((email.snippet?.length || 0) < 50 && (email.body?.length || 0) < 100)
+      return;
 
-    setLoadingIds(prev => new Set(prev).add(emailId));
+    setLoadingIds((prev) => new Set(prev).add(emailId));
 
     try {
       const response = await aiService.summarizeEmail({
         messageId: emailId,
-        content: email.body || email.snippet || ''
+        content: email.body || email.snippet || "",
       });
-      setSummariesById(prev => ({ ...prev, [emailId]: response.summary }));
+      setSummariesById((prev) => ({ ...prev, [emailId]: response.summary }));
     } catch (error) {
       console.error(`Failed to summarize email ${emailId}:`, error);
     } finally {
-      setLoadingIds(prev => {
+      setLoadingIds((prev) => {
         const next = new Set(prev);
         next.delete(emailId);
         return next;
       });
     }
-  }, []); // Stable callback with no dependencies
+  }, []);
 
-  const handleSnooze = useCallback((emailId: string, snoozedUntil: string) => {
-    if (onSnooze) {
-      onSnooze(emailId, snoozedUntil);
-    }
-  }, [onSnooze]);
+  const handleSnooze = useCallback(
+    (emailId: string, snoozedUntil: string) => {
+      if (onSnooze) {
+        onSnooze(emailId, snoozedUntil);
+      }
+    },
+    [onSnooze],
+  );
 
   const handleSnoozeRequest = useCallback((email: ParsedEmail) => {
     setSnoozeModalEmail(email);
   }, []);
 
-  const handleDropEmail = useCallback((emailId: string, targetColumn: 'inbox' | 'important' | 'done') => {
-    const email = messages.find(m => m.id === emailId);
-    if (!email) return;
+  const handleDropEmail = useCallback(
+    async (emailId: string, targetColumnId: string) => {
+      const email = localMessages.find((m) => m.id === emailId);
+      if (!email) return;
 
-    if (targetColumn === 'important') {
-      onUpdateStatus(emailId, 'important');
-    } else if (targetColumn === 'inbox') {
-      onUpdateStatus(emailId, 'inbox');
-    } else if (targetColumn === 'done') {
-      onUpdateStatus(emailId, 'done');
-    }
-  }, [messages, onUpdateStatus]);
+      const targetColumn = columns.find((c) => c.columnId === targetColumnId);
+      if (!targetColumn) return;
 
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>, columnId: string) => {
-    if (columnId !== 'inbox' || !onLoadMore) return;
+      // Optimistic update - update UI immediately
+      const updatedMessages = localMessages.map((msg) => {
+        if (msg.id === emailId) {
+          const updatedMsg = { ...msg };
+          const newLabels = [...(updatedMsg.labelIds || [])];
 
-    const element = e.currentTarget;
-    const bottom = element.scrollHeight - element.scrollTop <= element.clientHeight + 100; // 100px threshold
+          // Remove labels from other columns
+          columns.forEach((col) => {
+            if (col.columnId !== targetColumnId && col.gmailLabelId) {
+              const idx = newLabels.indexOf(col.gmailLabelId);
+              if (idx > -1) newLabels.splice(idx, 1);
+            }
+          });
 
-    if (bottom) {
-      console.log(`Load more triggered for ${columnId}`);
-      onLoadMore();
-    }
-  }, [onLoadMore]);
+          // Add target column label
+          if (
+            targetColumn.gmailLabelId &&
+            !newLabels.includes(targetColumn.gmailLabelId)
+          ) {
+            newLabels.push(targetColumn.gmailLabelId);
+          }
 
-  // Filter messages based on Backend Status (sorting/filtering now handled per-column)
-  const inboxEmails = messages.filter(e => {
-    const status = kanbanStatuses[e.id];
-    return !status || status === 'INBOX';
-  });
+          updatedMsg.labelIds = newLabels;
+          return updatedMsg;
+        }
+        return msg;
+      });
 
-  const importantEmails = messages.filter(e =>
-    kanbanStatuses[e.id] === 'IN_PROGRESS'
+      // Update local state immediately
+      setLocalMessages(updatedMessages);
+
+      // Notify parent to update cache
+      if (onMessagesChange) {
+        onMessagesChange(updatedMessages);
+      }
+
+      // Show brief loading indicator
+      setMovingEmailId(emailId);
+
+      try {
+        // Call API in background
+        await api.post("/api/kanban/move", null, {
+          params: {
+            emailId,
+            targetColumnId,
+          },
+        });
+
+        console.log(
+          `✅ Email ${emailId} moved to ${targetColumnId} successfully`,
+        );
+
+        // Invalidate IndexedDB cache for affected labels
+        const affectedLabelIds = new Set<string>();
+
+        // Add source column labels
+        columns.forEach((col) => {
+          if (col.gmailLabelId && email.labelIds?.includes(col.gmailLabelId)) {
+            affectedLabelIds.add(col.gmailLabelId);
+          }
+        });
+
+        // Add target column label
+        if (targetColumn.gmailLabelId) {
+          affectedLabelIds.add(targetColumn.gmailLabelId);
+        }
+
+        // Invalidate cache for all affected labels
+        const userEmail = localStorage.getItem("userEmail");
+        if (userEmail) {
+          for (const labelId of affectedLabelIds) {
+            await indexedDBService.invalidateLabelCache(userEmail, labelId);
+          }
+        }
+      } catch (error: any) {
+        console.error("Failed to move email:", error);
+        toast.error("Failed to move email");
+
+        // Revert optimistic update on error
+        setLocalMessages(messages);
+        if (onMessagesChange) {
+          onMessagesChange(messages);
+        }
+      } finally {
+        setMovingEmailId(null);
+      }
+    },
+    [localMessages, messages, columns, onMessagesChange],
   );
 
-  const doneEmails = messages.filter(e =>
-    kanbanStatuses[e.id] === 'DONE'
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLDivElement>, columnId: string) => {
+      if (columnId !== "inbox" || !onLoadMore) return;
+
+      const element = e.currentTarget;
+      const bottom =
+        element.scrollHeight - element.scrollTop <= element.clientHeight + 100;
+
+      if (bottom) {
+        console.log(`Load more triggered for ${columnId}`);
+        onLoadMore();
+      }
+    },
+    [onLoadMore],
   );
+
+  const handleDeleteColumn = async (columnId: string) => {
+    try {
+      const column = columns.find((c) => c.columnId === columnId);
+      if (!column) return;
+
+      await kanbanService.deleteColumn(column.id);
+      toast.success("Column deleted successfully");
+      fetchColumns();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Failed to delete column");
+    }
+  };
+
+  // Filter messages by column using Gmail labels and backend status
+  const getEmailsForColumn = (column: KanbanColumnType): ParsedEmail[] => {
+    // If column has Gmail label mapping, filter by label
+    if (column.gmailLabelId) {
+      return localMessages.filter((email) =>
+        email.labelIds?.includes(column.gmailLabelId!),
+      );
+    }
+
+    // For columns without Gmail mapping, use database status (fallback)
+    return messages.filter((email) => {
+      const status = kanbanStatuses[email.id];
+      // Map backend status to column ID
+      if (!status || status === "INBOX") return column.columnId === "inbox";
+      if (status === "TO_DO") return column.columnId === "todo";
+      if (status === "IN_PROGRESS") {
+        // Show in 'in_progress' OR any custom non-synced column (fallback)
+        return (
+          column.columnId === "in_progress" ||
+          (!column.isDefault && !column.gmailLabelId)
+        );
+      }
+      if (status === "DONE") return column.columnId === "done";
+      return false;
+    });
+  };
+
+  // Get icon for column (you can customize this)
+  const getColumnIcon = (_columnId: string) => {
+    // Return null for now, or you can import icons dynamically
+    return null;
+  };
+
+  if (loadingColumns) {
+    return (
+      <div className="h-full flex items-center justify-center bg-white">
+        <div className="text-gray-500">Loading Kanban board...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-white relative">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute top-14 right-6 z-50 flex items-center gap-2 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full border border-gray-100 shadow-md">
+          <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            Syncing Gmail
+          </span>
+        </div>
+      )}
+
+      {/* Header with Settings Button */}
+      <div className="px-6 py-3 border-b border-gray-200 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Kanban Board</h2>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+          title="Kanban Settings"
+        >
+          <Settings size={20} />
+        </button>
+      </div>
+
+      {/* Kanban Columns */}
       <div className="flex-1 overflow-hidden p-6 w-full">
-        <div className="h-full w-full grid gap-6" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-          <KanbanColumn
-            id="inbox"
-            title="Inbox"
-            count={inboxEmails.length}
-            icon={InboxIcon}
-            emails={inboxEmails}
-            labels={labels}
-            summariesById={summariesById}
-            loadingIds={loadingIds}
-            onSnooze={handleSnoozeRequest}
-            onDropEmail={handleDropEmail}
-            onMessageClick={onMessageClick}
-            onCardVisible={handleCardVisible}
-            onShowSummaryModal={handleShowSummaryModal}
-            onScroll={handleScroll}
-          />
-          <KanbanColumn
-            id="important"
-            title="In Progress"
-            count={importantEmails.length}
-            icon={Star}
-            emails={importantEmails}
-            labels={labels}
-            summariesById={summariesById}
-            loadingIds={loadingIds}
-            onSnooze={handleSnoozeRequest}
-            onDropEmail={handleDropEmail}
-            onMessageClick={onMessageClick}
-            onCardVisible={handleCardVisible}
-            onShowSummaryModal={handleShowSummaryModal}
-            onScroll={handleScroll}
-          />
-          <KanbanColumn
-            id="done"
-            title="Done"
-            count={doneEmails.length}
-            icon={CheckCircle2}
-            emails={doneEmails}
-            labels={labels}
-            summariesById={summariesById}
-            loadingIds={loadingIds}
-            onSnooze={handleSnoozeRequest}
-            onDropEmail={handleDropEmail}
-            onMessageClick={onMessageClick}
-            onCardVisible={handleCardVisible}
-            onShowSummaryModal={handleShowSummaryModal}
-            onScroll={handleScroll}
-          />
+        <div
+          className="h-full w-full grid gap-6"
+          style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr)` }}
+        >
+          {columns.map((column) => {
+            const emails = getEmailsForColumn(column);
+            return (
+              <KanbanColumnCard
+                key={column.id}
+                id={column.columnId}
+                title={column.name}
+                count={emails.length}
+                icon={getColumnIcon(column.columnId)}
+                emails={emails}
+                labels={labels}
+                summariesById={summariesById}
+                loadingIds={loadingIds}
+                onSnooze={handleSnoozeRequest}
+                onDropEmail={handleDropEmail}
+                onMessageClick={onMessageClick}
+                onCardVisible={handleCardVisible}
+                onShowSummaryModal={handleShowSummaryModal}
+                onScroll={handleScroll}
+                color={column.color}
+                isDefault={column.isDefault}
+                onDelete={handleDeleteColumn}
+              />
+            );
+          })}
         </div>
       </div>
 
@@ -191,7 +371,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
           onClose={() => setModalEmail(null)}
           onView={() => onMessageClick(modalEmail)}
           onSummaryUpdate={(emailId, newSummary) => {
-            setSummariesById(prev => ({ ...prev, [emailId]: newSummary }));
+            setSummariesById((prev) => ({ ...prev, [emailId]: newSummary }));
           }}
         />
       )}
@@ -214,6 +394,15 @@ const KanbanView: React.FC<KanbanViewProps> = ({
             handleSnooze(customSnoozeEmail.id, dateTime);
             setCustomSnoozeEmail(null);
           }}
+        />
+      )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <KanbanSettingsModal
+          columns={columns}
+          onClose={() => setShowSettings(false)}
+          onColumnsUpdated={fetchColumns}
         />
       )}
     </div>

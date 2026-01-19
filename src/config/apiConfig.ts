@@ -43,6 +43,7 @@ export interface ApiConfig {
     kanban: {
       statuses: string;
       update: string;
+      columns: string;
     };
   };
   headers: Record<string, string>;
@@ -94,6 +95,7 @@ class ApiConfigManager {
         kanban: {
           statuses: "/api/kanban/statuses",
           update: "/api/kanban/status",
+          columns: "/api/kanban/columns",
         },
       },
       headers: {

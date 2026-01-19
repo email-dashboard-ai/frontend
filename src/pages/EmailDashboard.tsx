@@ -1,43 +1,54 @@
-
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Toaster } from 'react-hot-toast';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from '../store';
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { Toaster } from "react-hot-toast";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAppDispatch, useAppSelector } from "../store";
 import {
   fetchLabels,
   fetchMessages,
-  fetchMoreMessages,
   setSelectedLabel,
   setSelectedMessage,
-  clearMessages
-} from '../store/slices/gmailSlice';
-import { logout } from '../store/slices/authSlice';
-import { GmailLabel, ParsedEmail, SearchResult } from '../types/gmail';
-import { LogOut, X, Settings } from 'lucide-react';
-import { gmailService } from '../services/gmailService';
+  clearMessages,
+} from "../store/slices/gmailSlice";
+import { logout } from "../store/slices/authSlice";
+import {
+  GmailLabel,
+  ParsedEmail,
+  SearchResult,
+  EmailPageResponse,
+} from "../types/gmail";
+import { LogOut, X, Settings } from "lucide-react";
+import { gmailService } from "../services/gmailService";
 
 // Components
-import EmailSidebar from '../components/email/EmailSidebar';
-import EmailList from '../components/email/EmailList';
-import EmailDetail from '../components/email/EmailDetail';
-import ComposeEmailModal from '../components/email/ComposeEmailModal';
-import KanbanView from '../components/email/KanbanView';
-import SearchPanel from '../components/email/SearchPanel';
-import SearchResults from '../components/email/SearchResults';
-import KeyboardShortcutsModal from '../components/email/KeyboardShortcutsModal';
-import SettingsModal from '../components/common/SettingsModal';
+import EmailSidebar from "../components/email/EmailSidebar";
+import EmailList from "../components/email/EmailList";
+import EmailDetail from "../components/email/EmailDetail";
+import ComposeEmailModal from "../components/email/ComposeEmailModal";
+import KanbanView from "../components/email/KanbanView";
+import SearchPanel from "../components/email/SearchPanel";
+import SearchResults from "../components/email/SearchResults";
+import KeyboardShortcutsModal from "../components/email/KeyboardShortcutsModal";
+import SettingsModal from "../components/common/SettingsModal";
 
 // Hooks
-import { useResizableLayout } from '../hooks/useResizableLayout';
-import { useEmailActions } from '../hooks/useEmailActions';
-import { useKeyboardNavigation } from '../hooks/useKeyboardNavigation';
+import { useResizableLayout } from "../hooks/useResizableLayout";
+import { useEmailActions } from "../hooks/useEmailActions";
+import { useKeyboardNavigation } from "../hooks/useKeyboardNavigation";
 
 const EmailDashboard: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAppSelector(state => state.auth);
-  const { labels, selectedLabel, messages, selectedMessage, isLoading, error, nextPageToken } = useAppSelector(state => state.gmail);
+  const { user } = useAppSelector((state) => state.auth);
+  const {
+    labels,
+    selectedLabel,
+    messages,
+    selectedMessage,
+    isLoading,
+    error,
+    nextPageToken,
+  } = useAppSelector((state) => state.gmail);
 
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -47,19 +58,43 @@ const EmailDashboard: React.FC = () => {
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [historyStack, setHistoryStack] = useState<string[]>([]);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
-  const [kanbanStatuses, setKanbanStatuses] = useState<Record<string, string>>({});
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
+  const [kanbanStatuses, setKanbanStatuses] = useState<Record<string, string>>(
+    {},
+  );
   const [snoozedInfo, setSnoozedInfo] = useState<Record<string, string>>({});
   const [showShortcutsModal, setShowShortcutsModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
+  // Kanban-specific state
+  const [kanbanMessages, setKanbanMessages] = useState<ParsedEmail[]>([]);
+  const [kanbanLoading, setKanbanLoading] = useState(false);
+  const [kanbanCacheKey, setKanbanCacheKey] = useState<string>("");
+
+  // Load cached Kanban messages on mount for fast initial render
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 767px)');
+    if (user?.email && viewMode === "kanban") {
+      const cached = localStorage.getItem(`kanban_emails_${user.email}`);
+      if (cached) {
+        try {
+          const { emails, key } = JSON.parse(cached);
+          console.log("Loaded Kanban cache:", emails.length, "emails");
+          setKanbanMessages(emails);
+          setKanbanCacheKey(key);
+        } catch (e) {
+          console.error("Failed to parse cached Kanban emails", e);
+        }
+      }
+    }
+  }, [user?.email, viewMode]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
     const update = () => setIsMobile(media.matches);
     update();
-    if (typeof media.addEventListener === 'function') {
-      media.addEventListener('change', update);
-      return () => media.removeEventListener('change', update);
+    if (typeof media.addEventListener === "function") {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
     }
     // Safari fallback
     media.addListener(update);
@@ -71,7 +106,7 @@ const EmailDashboard: React.FC = () => {
       const statuses = await gmailService.getKanbanStatuses();
       setKanbanStatuses(statuses);
     } catch (error) {
-      console.error('Failed to fetch kanban statuses', error);
+      console.error("Failed to fetch kanban statuses", error);
     }
   }, []);
 
@@ -80,22 +115,139 @@ const EmailDashboard: React.FC = () => {
       const info = await gmailService.getSnoozedEmailsInfo();
       setSnoozedInfo(info);
     } catch (error) {
-      console.error('Failed to fetch snoozed info', error);
+      console.error("Failed to fetch snoozed info", error);
     }
   }, []);
 
-  useEffect(() => {
-    if (viewMode === 'kanban') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      fetchKanbanStatuses();
-    }
-  }, [viewMode, fetchKanbanStatuses]);
+  // Fetch Kanban emails when switching to Kanban view (always fresh from backend)
+  const fetchKanbanEmails = useCallback(async () => {
+    if (!user?.email) return;
 
-  const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(new Set());
+    try {
+      setKanbanLoading(true);
+
+      // Get all Kanban columns
+      const columns = await gmailService.getKanbanColumns();
+
+      // Extract label IDs from columns that have Gmail labels
+      const labelIds = columns
+        .map((col) => col.gmailLabelId)
+        .filter((id): id is string => id !== null && id !== undefined);
+
+      if (labelIds.length === 0) {
+        setKanbanMessages([]);
+        setKanbanLoading(false);
+        return;
+      }
+
+      // Create cache key from sorted label IDs
+      const cacheKey = labelIds.sort().join(",");
+
+      // If we have valid cache, skip refetch
+      if (kanbanCacheKey === cacheKey && kanbanMessages.length > 0) {
+        console.log("Using cached Kanban data");
+        setKanbanLoading(false);
+        return;
+      }
+
+      console.log(
+        `Fetching emails for ${labelIds.length} Kanban columns (20 per column)...`,
+      );
+
+      // Fetch emails for each label in parallel (limit 20 per column for speed)
+      const emailPromises = labelIds.map((labelId: string) =>
+        gmailService.getMessages(labelId, undefined, 20).catch((err: any) => {
+          console.error(`Failed to fetch emails for label ${labelId}:`, err);
+          return { messages: [], nextPageToken: null };
+        }),
+      );
+
+      const results = await Promise.all(emailPromises);
+      const allEmails = results.flatMap(
+        (result: EmailPageResponse) => result.messages || [],
+      );
+
+      // Deduplicate emails by ID (in case an email has multiple Kanban labels)
+      const uniqueEmailsMap = new Map<string, ParsedEmail>();
+      allEmails.forEach((email: ParsedEmail) => {
+        if (!uniqueEmailsMap.has(email.id)) {
+          uniqueEmailsMap.set(email.id, email);
+        }
+      });
+
+      const uniqueEmails = Array.from(uniqueEmailsMap.values());
+      console.log(
+        `Fetched ${uniqueEmails.length} unique emails for Kanban view`,
+      );
+
+      setKanbanMessages(uniqueEmails);
+      setKanbanCacheKey(cacheKey);
+
+      // Save to cache
+      if (user?.email) {
+        localStorage.setItem(
+          `kanban_emails_${user.email}`,
+          JSON.stringify({ emails: uniqueEmails, key: cacheKey }),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch Kanban emails:", error);
+    } finally {
+      setKanbanLoading(false);
+    }
+  }, [user?.email, kanbanCacheKey, kanbanMessages.length]);
+
+  // Callback to handle optimistic updates and refetch signals
+  const handleKanbanMessagesChange = useCallback(
+    (messages: ParsedEmail[]) => {
+      if (messages.length === 0) {
+        // Signal to refetch from backend (after error or need fresh data)
+        console.log("Refetching Kanban data after operation...");
+        setKanbanCacheKey(""); // Clear cache key to force refetch
+        Promise.all([fetchKanbanStatuses(), fetchKanbanEmails()]).then(() => {
+          console.log("Kanban data refreshed");
+        });
+      } else {
+        // Optimistic update - update state and cache immediately
+        setKanbanMessages(messages);
+        if (user?.email && kanbanCacheKey) {
+          localStorage.setItem(
+            `kanban_emails_${user.email}`,
+            JSON.stringify({ emails: messages, key: kanbanCacheKey }),
+          );
+        }
+      }
+    },
+    [user?.email, kanbanCacheKey, fetchKanbanStatuses, fetchKanbanEmails],
+  );
+
+  useEffect(() => {
+    if (viewMode === "kanban") {
+      // Fetch statuses first, then emails to ensure consistency
+      fetchKanbanStatuses().then(() => {
+        fetchKanbanEmails();
+      });
+    }
+  }, [viewMode, fetchKanbanStatuses, fetchKanbanEmails]);
+
+  const [selectedEmailIds, setSelectedEmailIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   // Custom Hooks
-  const { sidebarWidth, listWidth, startResizingSidebar, startResizingList } = useResizableLayout();
-  const { handleToggleRead, handleToggleStar, handleDeleteEmail, handleMoveToInbox, handlePermanentlyDelete, refreshMessages, handleBulkDelete, handleBulkMarkRead, handleSnoozeEmail } = useEmailActions();
+  const { sidebarWidth, listWidth, startResizingSidebar, startResizingList } =
+    useResizableLayout();
+  const {
+    handleToggleRead,
+    handleToggleStar,
+    handleDeleteEmail,
+    handleMoveToInbox,
+    handlePermanentlyDelete,
+    refreshMessages,
+    handleBulkDelete,
+    handleBulkMarkRead,
+    handleSnoozeEmail,
+  } = useEmailActions();
 
   // Keyboard Navigation Hook (List view only)
   useKeyboardNavigation({
@@ -113,57 +265,70 @@ const EmailDashboard: React.FC = () => {
       if (emailId) {
         navigate(`?email=${emailId}`, { replace: true });
       } else {
-        navigate('', { replace: true });
+        navigate("", { replace: true });
       }
     },
     onDeleteMessage: handleDeleteEmail,
     onToggleStar: handleToggleStar,
     onFocusSearch: () => {
-      const searchInput = document.querySelector('input[placeholder="Search mail"]') as HTMLInputElement;
+      const searchInput = document.querySelector(
+        'input[placeholder="Search mail"]',
+      ) as HTMLInputElement;
       searchInput?.focus();
     },
-    enabled: viewMode === 'list' && !isSearchActive && !isComposeOpen && !showShortcutsModal,
+    enabled:
+      viewMode === "list" &&
+      !isSearchActive &&
+      !isComposeOpen &&
+      !showShortcutsModal,
   });
 
   // Listen for ? key to TOGGLE shortcuts modal, and Esc to close
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const active = document.activeElement;
-      const isTyping = active?.tagName === 'INPUT' || active?.tagName === 'TEXTAREA';
+      const isTyping =
+        active?.tagName === "INPUT" || active?.tagName === "TEXTAREA";
 
       // ? to toggle modal
-      if (e.key === '?' && !isTyping) {
+      if (e.key === "?" && !isTyping) {
         e.preventDefault();
-        setShowShortcutsModal(prev => !prev);
+        setShowShortcutsModal((prev) => !prev);
       }
 
       // Esc to close modal
-      if (e.key === 'Escape' && showShortcutsModal) {
+      if (e.key === "Escape" && showShortcutsModal) {
         e.preventDefault();
         setShowShortcutsModal(false);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showShortcutsModal]);
 
-  const handleUnsnoozeEmail = useCallback(async (emailId: string) => {
-    try {
-      await gmailService.unsnoozeEmail(emailId);
-      // Refresh messages and snoozed info
-      if (selectedLabel) {
-        refreshMessages(selectedLabel.id);
+  const handleUnsnoozeEmail = useCallback(
+    async (emailId: string) => {
+      try {
+        await gmailService.unsnoozeEmail(emailId);
+        // Refresh messages and snoozed info
+        if (selectedLabel) {
+          refreshMessages(selectedLabel.id);
+        }
+        // Invalidate INBOX cache since email moves back to INBOX
+        if (user?.email) {
+          const { indexedDBService } =
+            await import("../services/indexedDBService");
+          indexedDBService
+            .invalidateLabelCache(user.email, "INBOX")
+            .catch(console.error);
+        }
+        fetchSnoozedInfo();
+      } catch (error) {
+        console.error("Failed to unsnooze email", error);
       }
-      // Invalidate INBOX cache since email moves back to INBOX
-      if (user?.email) {
-        const { indexedDBService } = await import('../services/indexedDBService');
-        indexedDBService.invalidateLabelCache(user.email, 'INBOX').catch(console.error);
-      }
-      fetchSnoozedInfo();
-    } catch (error) {
-      console.error('Failed to unsnooze email', error);
-    }
-  }, [selectedLabel, refreshMessages, fetchSnoozedInfo, user?.email]);
+    },
+    [selectedLabel, refreshMessages, fetchSnoozedInfo, user?.email],
+  );
 
   const sidebarRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -176,9 +341,9 @@ const EmailDashboard: React.FC = () => {
 
   // Handle URL parameter for selected email (URL is single source of truth)
   useEffect(() => {
-    const emailId = searchParams.get('email');
+    const emailId = searchParams.get("email");
     if (emailId && messages.length > 0) {
-      const message = messages.find(m => m.id === emailId);
+      const message = messages.find((m) => m.id === emailId);
       if (message && (!selectedMessage || selectedMessage.id !== emailId)) {
         dispatch(setSelectedMessage(message));
         // Mark as read if unread
@@ -190,11 +355,18 @@ const EmailDashboard: React.FC = () => {
       // Clear selected message when URL has no email param (e.g., after ESC)
       dispatch(setSelectedMessage(null));
     }
-  }, [searchParams, messages, selectedMessage, dispatch, isMobile, handleToggleRead]);
+  }, [
+    searchParams,
+    messages,
+    selectedMessage,
+    dispatch,
+    isMobile,
+    handleToggleRead,
+  ]);
 
   // Fetch snoozed info when SNOOZED label is selected
   useEffect(() => {
-    if (selectedLabel?.name === 'SNOOZED') {
+    if (selectedLabel?.name === "SNOOZED") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchSnoozedInfo();
     }
@@ -202,7 +374,7 @@ const EmailDashboard: React.FC = () => {
 
   useEffect(() => {
     if (!selectedLabel && labels.length > 0) {
-      const inbox = labels.find((l: GmailLabel) => l.id === 'INBOX');
+      const inbox = labels.find((l: GmailLabel) => l.id === "INBOX");
       if (inbox) {
         dispatch(setSelectedLabel(inbox));
       }
@@ -216,12 +388,14 @@ const EmailDashboard: React.FC = () => {
       setPageToken(undefined);
       setHistoryStack([]);
       setSelectedEmailIds(new Set());
-      dispatch(fetchMessages({ labelId: selectedLabel.id, userEmail: user.email }));
+      dispatch(
+        fetchMessages({ labelId: selectedLabel.id, userEmail: user.email }),
+      );
     }
   }, [selectedLabel, dispatch, user?.email]);
 
   const toggleEmailSelection = useCallback((id: string) => {
-    setSelectedEmailIds(prev => {
+    setSelectedEmailIds((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
         newSet.delete(id);
@@ -234,9 +408,15 @@ const EmailDashboard: React.FC = () => {
 
   const handleNextPage = () => {
     if (nextPageToken && selectedLabel && user?.email) {
-      setHistoryStack(prev => [...prev, pageToken || '']);
+      setHistoryStack((prev) => [...prev, pageToken || ""]);
       setPageToken(nextPageToken);
-      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: nextPageToken, userEmail: user.email }));
+      dispatch(
+        fetchMessages({
+          labelId: selectedLabel.id,
+          pageToken: nextPageToken,
+          userEmail: user.email,
+        }),
+      );
     }
   };
 
@@ -245,18 +425,16 @@ const EmailDashboard: React.FC = () => {
       const prevToken = historyStack[historyStack.length - 1];
       const newStack = historyStack.slice(0, -1);
       setHistoryStack(newStack);
-      setPageToken(prevToken === '' ? undefined : prevToken);
-      dispatch(fetchMessages({ labelId: selectedLabel.id, pageToken: prevToken === '' ? undefined : prevToken, userEmail: user.email }));
+      setPageToken(prevToken === "" ? undefined : prevToken);
+      dispatch(
+        fetchMessages({
+          labelId: selectedLabel.id,
+          pageToken: prevToken === "" ? undefined : prevToken,
+          userEmail: user.email,
+        }),
+      );
     }
   };
-
-  const handleLoadMore = useCallback(() => {
-    if (nextPageToken && selectedLabel && !isLoading) {
-      // Don't modify pageToken state directly as it affects list pagination
-      // Just fetch more messages to append
-      dispatch(fetchMoreMessages({ labelId: selectedLabel.id, pageToken: nextPageToken }));
-    }
-  }, [nextPageToken, selectedLabel, isLoading, dispatch]);
 
   const handleLabelClick = (label: GmailLabel) => {
     dispatch(setSelectedLabel(label));
@@ -285,22 +463,7 @@ const EmailDashboard: React.FC = () => {
     dispatch(setSelectedMessage(null));
   }, [dispatch]);
 
-  const handleKanbanUpdateStatus = useCallback(async (id: string, newStatus: 'inbox' | 'important' | 'done') => {
-    try {
-      // Optimistic update
-      let backendStatus = 'INBOX';
-      if (newStatus === 'important') backendStatus = 'IN_PROGRESS';
-      else if (newStatus === 'done') backendStatus = 'DONE';
-
-      setKanbanStatuses(prev => ({ ...prev, [id]: backendStatus }));
-
-      await gmailService.updateKanbanStatus(id, newStatus);
-      // fetchKanbanStatuses(); // No need to fetch if optimistic update works, but maybe safer to fetch
-    } catch (error) {
-      console.error('Failed to update email status:', error);
-      fetchKanbanStatuses(); // Revert on error
-    }
-  }, [fetchKanbanStatuses]);
+  // handleKanbanUpdateStatus removed
 
   return (
     <div className="h-screen flex flex-col bg-gray-50 overflow-hidden">
@@ -310,9 +473,13 @@ const EmailDashboard: React.FC = () => {
         <div className="h-full px-6 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
           {/* Left Section - Logo & Title */}
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-lg shadow-md" />
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="w-10 h-10 rounded-lg shadow-md"
+            />
             <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">
-              {viewMode === 'kanban' ? 'Next Gmail' : 'Next Gmail'}
+              {viewMode === "kanban" ? "Next Gmail" : "Next Gmail"}
             </h1>
           </div>
 
@@ -339,25 +506,27 @@ const EmailDashboard: React.FC = () => {
             {/* View Toggle - Text Style */}
             <div className="flex bg-blue-50 p-1 rounded-lg border border-blue-200 flex-shrink-0">
               <button
-                onClick={() => setViewMode('list')}
-                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === 'list'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-blue-600 hover:text-blue-700'
-                  }`}
+                onClick={() => setViewMode("list")}
+                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${
+                  viewMode === "list"
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "text-blue-600 hover:text-blue-700"
+                }`}
                 title="List View"
               >
                 Gmail
               </button>
               <button
                 onClick={() => {
-                  setViewMode('kanban');
+                  setViewMode("kanban");
                   setIsMobileDetailView(false);
                   dispatch(setSelectedMessage(null));
                 }}
-                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === 'kanban'
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'text-blue-600 hover:text-blue-700'
-                  }`}
+                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${
+                  viewMode === "kanban"
+                    ? "bg-blue-600 text-white shadow-md"
+                    : "text-blue-600 hover:text-blue-700"
+                }`}
                 title="Kanban Board"
               >
                 Kanban
@@ -370,13 +539,17 @@ const EmailDashboard: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-sm font-semibold text-blue-700 overflow-hidden">
                 {user?.avatar ? (
-                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  user?.name?.[0] || 'U'
+                  user?.name?.[0] || "U"
                 )}
               </div>
               <span className="text-sm font-medium text-gray-700 hidden md:block">
-                {user?.name || 'User'}
+                {user?.name || "User"}
               </span>
             </div>
             <button
@@ -401,17 +574,21 @@ const EmailDashboard: React.FC = () => {
       {error && (
         <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center justify-between">
           <p className="text-red-800 text-sm">{error}</p>
-          <button className="text-red-600 hover:text-red-800"><X size={16} /></button>
+          <button className="text-red-600 hover:text-red-800">
+            <X size={16} />
+          </button>
         </div>
       )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden relative">
-        {viewMode === 'list' ? (
+        {viewMode === "list" ? (
           <>
             <EmailSidebar
               sidebarWidth={sidebarWidth}
-              isMobileDetailView={isMobile && (isMobileDetailView || !!selectedMessage)}
+              isMobileDetailView={
+                isMobile && (isMobileDetailView || !!selectedMessage)
+              }
               labels={labels}
               selectedLabel={selectedLabel}
               isLoading={isLoading}
@@ -438,7 +615,7 @@ const EmailDashboard: React.FC = () => {
                     navigate(`?email=${messageId}`, { replace: true });
                     if (isMobile) setIsMobileDetailView(true);
                   } catch (e) {
-                    console.error('Failed to load message', e);
+                    console.error("Failed to load message", e);
                   }
                 }}
                 onBack={() => {
@@ -455,7 +632,9 @@ const EmailDashboard: React.FC = () => {
                 selectedLabel={selectedLabel}
                 isLoading={isLoading}
                 searchQuery=""
-                onRefresh={() => selectedLabel && refreshMessages(selectedLabel.id)}
+                onRefresh={() =>
+                  selectedLabel && refreshMessages(selectedLabel.id)
+                }
                 onMessageClick={handleMessageClick}
                 listRef={listRef}
                 onToggleStar={handleToggleStar}
@@ -485,14 +664,14 @@ const EmailDashboard: React.FC = () => {
                 onMoveToInbox={(emailId) => {
                   if (selectedLabel) {
                     dispatch(setSelectedMessage(null));
-                    navigate('', { replace: true });
+                    navigate("", { replace: true });
                     handleMoveToInbox(emailId, selectedLabel.id);
                   }
                 }}
                 onPermanentlyDelete={(emailId) => {
                   if (selectedLabel) {
                     dispatch(setSelectedMessage(null));
-                    navigate('', { replace: true });
+                    navigate("", { replace: true });
                     handlePermanentlyDelete(emailId, selectedLabel.id);
                   }
                 }}
@@ -505,7 +684,9 @@ const EmailDashboard: React.FC = () => {
             />
 
             <EmailDetail
-              isMobileDetailView={isMobile && (isMobileDetailView || !!selectedMessage)}
+              isMobileDetailView={
+                isMobile && (isMobileDetailView || !!selectedMessage)
+              }
               setIsMobileDetailView={setIsMobileDetailView}
               selectedMessage={selectedMessage}
               isLoading={isLoading}
@@ -517,7 +698,7 @@ const EmailDashboard: React.FC = () => {
                 if (selectedLabel) {
                   dispatch(setSelectedMessage(null));
                   // Clear URL parameter to prevent useEffect from restoring selected message
-                  navigate('', { replace: true });
+                  navigate("", { replace: true });
                   handleMoveToInbox(emailId, selectedLabel.id);
                 }
               }}
@@ -526,7 +707,7 @@ const EmailDashboard: React.FC = () => {
                   // Clear selected message FIRST to ensure immediate UI update
                   dispatch(setSelectedMessage(null));
                   // Clear URL parameter to prevent useEffect from restoring selected message
-                  navigate('', { replace: true });
+                  navigate("", { replace: true });
                   handlePermanentlyDelete(emailId, selectedLabel.id);
                 }
               }}
@@ -534,7 +715,9 @@ const EmailDashboard: React.FC = () => {
           </>
         ) : (
           <>
-            {isMobile && (isMobileDetailView || !!selectedMessage) && selectedMessage ? (
+            {isMobile &&
+            (isMobileDetailView || !!selectedMessage) &&
+            selectedMessage ? (
               <EmailDetail
                 isMobileDetailView={isMobileDetailView}
                 setIsMobileDetailView={setIsMobileDetailView}
@@ -547,14 +730,14 @@ const EmailDashboard: React.FC = () => {
                 onMoveToInbox={(emailId) => {
                   if (selectedLabel) {
                     dispatch(setSelectedMessage(null));
-                    navigate('', { replace: true });
+                    navigate("", { replace: true });
                     handleMoveToInbox(emailId, selectedLabel.id);
                   }
                 }}
                 onPermanentlyDelete={(emailId) => {
                   if (selectedLabel) {
                     dispatch(setSelectedMessage(null));
-                    navigate('', { replace: true });
+                    navigate("", { replace: true });
                     handlePermanentlyDelete(emailId, selectedLabel.id);
                   }
                 }}
@@ -563,18 +746,23 @@ const EmailDashboard: React.FC = () => {
             ) : (
               <div className="w-full h-full">
                 <KanbanView
-                  messages={messages}
+                  messages={kanbanMessages}
+                  isLoading={kanbanLoading}
                   labels={labels}
                   kanbanStatuses={kanbanStatuses}
                   onMessageClick={handleMessageClick}
                   onToggleStar={handleToggleStar}
-                  onUpdateStatus={handleKanbanUpdateStatus}
                   onSnooze={(emailId, snoozedUntil) => {
                     if (selectedLabel) {
-                      handleSnoozeEmail(emailId, snoozedUntil, selectedLabel.id);
+                      handleSnoozeEmail(
+                        emailId,
+                        snoozedUntil,
+                        selectedLabel.id,
+                      );
                     }
                   }}
-                  onLoadMore={handleLoadMore}
+                  onLoadMore={fetchKanbanEmails}
+                  onMessagesChange={handleKanbanMessagesChange}
                 />
               </div>
             )}
