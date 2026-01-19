@@ -445,6 +445,12 @@ class GmailService {
     return data.data;
   }
 
+  async getKanbanColumns(signal?: AbortSignal): Promise<any[]> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.get<ApiResponse<any[]>>(config.endpoints.kanban.columns, { signal });
+    return data.data;
+  }
+
   // Search: Gmail fields → GMAIL_API | body → INTERNAL | both → HYBRID
   async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResult[]> {
     const config = apiConfig.getConfig();

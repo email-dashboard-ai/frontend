@@ -138,7 +138,11 @@ const KanbanCard: React.FC<KanbanCardProps> = ({
     }
   };
 
-  const style = columnStyles[column];
+  const style = columnStyles[column] || {
+    border: 'border-l-4 border-l-gray-500',
+    bg: 'bg-white',
+    indicator: '📧'
+  };
 
   return (
     <div
