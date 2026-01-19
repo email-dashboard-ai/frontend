@@ -115,4 +115,8 @@ export interface SearchRequest {
 
   // Fuzzy search → strategy: INTERNAL or HYBRID
   body?: string;
+
+  // When true, uses PostgreSQL trigram for typo-tolerant search (slower but more flexible)
+  // When false/undefined, body search uses Gmail API (faster, exact match)
+  useFuzzySearch?: boolean;
 }
