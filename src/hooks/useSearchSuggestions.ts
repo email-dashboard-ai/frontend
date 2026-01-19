@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useAppSelector } from '../store';
+import type { SearchRequest, SavedSearchRequest } from '../types/gmail';
 
 const RECENT_SEARCHES_KEY = 'email_recent_searches';
 const MAX_RECENT_SEARCHES = 10;
@@ -10,6 +11,7 @@ export interface SearchSuggestion {
   value: string;
   displayText: string;
   secondaryText?: string;
+  searchRequest?: SearchRequest; // Full search request for recent searches
 }
 
 interface UseSearchSuggestionsOptions {
@@ -17,26 +19,78 @@ interface UseSearchSuggestionsOptions {
   debounceMs?: number;
 }
 
-// Helper to get recent searches from localStorage
-const getRecentSearches = (): string[] => {
+// Helper to get saved search requests from localStorage
+const getSavedSearches = (): SavedSearchRequest[] => {
   try {
     const stored = localStorage.getItem(RECENT_SEARCHES_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored);
+    // Migration: If old format (array of strings), convert to new format
+    if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+      return parsed.map((term: string) => ({
+        request: { body: term },
+        timestamp: Date.now(),
+        displayLabel: term
+      }));
+    }
+
+    return parsed as SavedSearchRequest[];
   } catch {
     return [];
   }
 };
 
-// Helper to save a search term to recent searches
-const saveToRecentSearches = (term: string): void => {
-  if (!term || term.length < 2) return;
+// Helper to generate display label from search request
+const generateDisplayLabel = (request: SearchRequest): string => {
+  const parts: string[] = [];
+
+  if (request.body) parts.push(request.body);
+  if (request.useFuzzySearch) parts.push('(fuzzy)');
+  if (request.from) parts.push(`from: ${request.from}`);
+  if (request.to) parts.push(`to: ${request.to}`);
+  if (request.subject) parts.push(`subject: ${request.subject}`);
+  if (request.after) parts.push(`after: ${request.after}`);
+  if (request.before) parts.push(`before: ${request.before}`);
+
+  return parts.join(' ') || 'Advanced search';
+};
+
+// Helper to check if two requests are equal
+const isEqualSearchRequest = (a: SearchRequest, b: SearchRequest): boolean => {
+  return JSON.stringify(a) === JSON.stringify(b);
+};
+
+// Helper to check if request has meaningful content
+const hasSearchContent = (request: SearchRequest): boolean => {
+  return !!(request.body || request.from || request.to || request.subject ||
+    request.after || request.before || request.hasAttachment ||
+    request.isUnread || request.isStarred);
+};
+
+// Helper to save full search request
+const saveSearchRequest = (request: SearchRequest): void => {
+  if (!hasSearchContent(request)) return;
 
   try {
-    const recent = getRecentSearches();
-    // Remove if exists (to move to top)
-    const filtered = recent.filter(s => s.toLowerCase() !== term.toLowerCase());
+    const saved = getSavedSearches();
+
+    // Generate display label
+    const displayLabel = generateDisplayLabel(request);
+
+    // Check if exact same search exists (remove it to move to top)
+    const filtered = saved.filter(s =>
+      !isEqualSearchRequest(s.request, request)
+    );
+
     // Add to beginning
-    const updated = [term, ...filtered].slice(0, MAX_RECENT_SEARCHES);
+    const newSearch: SavedSearchRequest = {
+      request,
+      timestamp: Date.now(),
+      displayLabel
+    };
+
+    const updated = [newSearch, ...filtered].slice(0, MAX_RECENT_SEARCHES);
     localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
   } catch {
     // Ignore localStorage errors
@@ -130,15 +184,16 @@ export const useSearchSuggestions = (options: UseSearchSuggestionsOptions = {}) 
       const results: SearchSuggestion[] = [];
 
       // 1. PRIORITY: Recent searches (most relevant - user searched before)
-      const recentSearches = getRecentSearches();
-      recentSearches.forEach((term) => {
-        if (term.toLowerCase().includes(queryLower)) {
+      const savedSearches = getSavedSearches();
+      savedSearches.forEach((saved) => {
+        if (saved.displayLabel.toLowerCase().includes(queryLower)) {
           results.push({
-            id: `recent-${term}`,
+            id: `recent-${saved.timestamp}`,
             type: 'recent',
-            value: term,
-            displayText: term,
-            secondaryText: 'Recent search',
+            value: saved.request.body || '',
+            displayText: saved.displayLabel,
+            secondaryText: new Date(saved.timestamp).toLocaleDateString(),
+            searchRequest: saved.request,
           });
         }
       });
@@ -199,21 +254,22 @@ export const useSearchSuggestions = (options: UseSearchSuggestionsOptions = {}) 
     [contacts, subjectKeywords, maxSuggestions]
   );
 
-  // Save a search term to recent searches
-  const saveRecentSearch = useCallback((term: string) => {
-    saveToRecentSearches(term);
+  // Save a search request to recent searches
+  const saveRecentSearch = useCallback((request: SearchRequest) => {
+    saveSearchRequest(request);
   }, []);
 
   // Get recent searches for focus state (when input is empty)
   const getRecentSuggestionsOnFocus = useCallback((): SearchSuggestion[] => {
-    const recentSearches = getRecentSearches();
+    const savedSearches = getSavedSearches();
     // Show max 3 recent searches when focused on empty input
-    return recentSearches.slice(0, 3).map((term) => ({
-      id: `recent-${term}`,
+    return savedSearches.slice(0, 3).map((saved) => ({
+      id: `recent-${saved.timestamp}`,
       type: 'recent' as const,
-      value: term,
-      displayText: term,
-      secondaryText: 'Recent search',
+      value: saved.request.body || '',
+      displayText: saved.displayLabel,
+      secondaryText: new Date(saved.timestamp).toLocaleDateString(),
+      searchRequest: saved.request,
     }));
   }, []);
 
@@ -239,17 +295,18 @@ export const useSearchSuggestions = (options: UseSearchSuggestionsOptions = {}) 
 
       // If query is 1 char, still show recent only
       if (query.length === 1) {
-        const recentSearches = getRecentSearches();
+        const savedSearches = getSavedSearches();
         const queryLower = query.toLowerCase();
-        const filtered = recentSearches
-          .filter(term => term.toLowerCase().startsWith(queryLower))
+        const filtered = savedSearches
+          .filter(saved => saved.displayLabel.toLowerCase().startsWith(queryLower))
           .slice(0, 3)
-          .map((term) => ({
-            id: `recent-${term}`,
+          .map((saved) => ({
+            id: `recent-${saved.timestamp}`,
             type: 'recent' as const,
-            value: term,
-            displayText: term,
-            secondaryText: 'Recent search',
+            value: saved.request.body || '',
+            displayText: saved.displayLabel,
+            secondaryText: new Date(saved.timestamp).toLocaleDateString(),
+            searchRequest: saved.request,
           }));
         setSuggestions(filtered);
         setIsLoading(false);

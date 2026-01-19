@@ -72,10 +72,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onSearchRequ
         setShowFilters(false);  // Close filter panel immediately
         clearSuggestions();
 
-        // Save search term to recent searches
-        if (requestToUse.body) {
-            saveRecentSearch(requestToUse.body);
-        }
+        // Save full search request (not just body) to support state restoration
+        saveRecentSearch(requestToUse);
 
         try {
             const results = await gmailService.search(requestToUse, abortControllerRef.current.signal);
@@ -142,7 +140,23 @@ const SearchPanel: React.FC<SearchPanelProps> = ({ onSearchResults, onSearchRequ
 
     // Handle suggestion selection
     const handleSuggestionClick = useCallback((suggestion: SearchSuggestion) => {
-        // Merge suggestion with existing filters instead of replacing
+        // If recent search with full state, restore everything
+        if (suggestion.type === 'recent' && suggestion.searchRequest) {
+            const restoredRequest = { ...suggestion.searchRequest };
+            setSearchRequest(restoredRequest);
+
+            // Close dropdown and blur input
+            setShowSuggestions(false);
+            setIsFocused(false);
+            clearSuggestions();
+            inputRef.current?.blur();
+
+            // Trigger search immediately
+            handleSearch(restoredRequest);
+            return;
+        }
+
+        // For contact or keyword suggestions, merge with existing filters
         const newRequest: SearchRequest = {
             ...searchRequest,  // Keep existing filters
         };

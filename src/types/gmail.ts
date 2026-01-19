@@ -120,3 +120,11 @@ export interface SearchRequest {
   // When false/undefined, body search uses Gmail API (faster, exact match)
   useFuzzySearch?: boolean;
 }
+
+// Saved Search Request (for history with full state)
+export interface SavedSearchRequest {
+  request: SearchRequest;
+  timestamp: number;
+  displayLabel: string;
+}
+
