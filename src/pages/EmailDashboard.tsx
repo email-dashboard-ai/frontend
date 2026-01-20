@@ -156,10 +156,12 @@ const EmailDashboard: React.FC = () => {
 
       // Fetch emails for each label in parallel (limit 20 per column for speed)
       const emailPromises = labelIds.map((labelId: string) =>
-        gmailService.getMessages(labelId, undefined, 20).catch((err: any) => {
-          console.error(`Failed to fetch emails for label ${labelId}:`, err);
-          return { messages: [], nextPageToken: null };
-        }),
+        gmailService
+          .getMessages(labelId, undefined, 20)
+          .catch((err: unknown) => {
+            console.error(`Failed to fetch emails for label ${labelId}:`, err);
+            return { messages: [], nextPageToken: null };
+          }),
       );
 
       const results = await Promise.all(emailPromises);
@@ -367,7 +369,6 @@ const EmailDashboard: React.FC = () => {
   // Fetch snoozed info when SNOOZED label is selected
   useEffect(() => {
     if (selectedLabel?.name === "SNOOZED") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchSnoozedInfo();
     }
   }, [selectedLabel, fetchSnoozedInfo]);
@@ -384,7 +385,6 @@ const EmailDashboard: React.FC = () => {
   useEffect(() => {
     if (selectedLabel && user?.email) {
       dispatch(clearMessages());
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPageToken(undefined);
       setHistoryStack([]);
       setSelectedEmailIds(new Set());
@@ -606,7 +606,7 @@ const EmailDashboard: React.FC = () => {
             {isSearchActive ? (
               <SearchResults
                 results={searchResults}
-                searchQuery={searchRequest.body || ''}
+                searchQuery={searchRequest.body || ""}
                 onSelectResult={async (messageId) => {
                   try {
                     const message = await gmailService.getMessage(messageId);

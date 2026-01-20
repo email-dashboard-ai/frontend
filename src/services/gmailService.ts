@@ -1,15 +1,22 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { api, apiConfig } from '../config/apiConfig';
-import type { GmailLabel, GmailMessage, ParsedEmail, EmailPageResponse, SearchResult, SearchRequest } from '../types/gmail';
-import type { ApiResponse } from '../types/api';
-import { appConfig } from '../config/appConfig';
+import { api, apiConfig } from "../config/apiConfig";
+import type {
+  GmailLabel,
+  GmailMessage,
+  ParsedEmail,
+  EmailPageResponse,
+  SearchResult,
+  SearchRequest,
+} from "../types/gmail";
+import type { ApiResponse } from "../types/api";
+import { appConfig } from "../config/appConfig";
 
 class GmailService {
   // Helper to decode base64url with UTF-8 support
   private decodeBase64(data: string): string {
     try {
       // Replace non-url safe characters
-      const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+      const base64 = data.replace(/-/g, "+").replace(/_/g, "/");
       // Decode base64 to binary string
       const binaryString = atob(base64);
       // Convert to byte array
@@ -18,20 +25,24 @@ class GmailService {
         bytes[i] = binaryString.charCodeAt(i);
       }
       // Decode UTF-8
-      return new TextDecoder('utf-8').decode(bytes);
+      return new TextDecoder("utf-8").decode(bytes);
     } catch (e) {
-      console.error('Error decoding email body:', e);
-      return '';
+      console.error("Error decoding email body:", e);
+      return "";
     }
   }
 
-  private extractBody(part: any, currentBody: string = '', inlineImages: Map<string, string> = new Map()): string {
+  private extractBody(
+    part: any,
+    currentBody: string = "",
+    inlineImages: Map<string, string> = new Map(),
+  ): string {
     let body = currentBody;
-    if (part.mimeType === 'text/html' && part.body?.data) {
+    if (part.mimeType === "text/html" && part.body?.data) {
       body = this.decodeBase64(part.body.data);
-    } else if (part.mimeType === 'text/plain' && !body && part.body?.data) {
+    } else if (part.mimeType === "text/plain" && !body && part.body?.data) {
       const plainText = this.decodeBase64(part.body.data);
-      body = `<p>${plainText.replace(/\n/g, '<br>')}</p>`;
+      body = `<p>${plainText.replace(/\n/g, "<br>")}</p>`;
     } else if (part.parts) {
       part.parts.forEach((p: any) => {
         body = this.extractBody(p, body, inlineImages);
@@ -40,14 +51,20 @@ class GmailService {
     return body;
   }
 
-  private async extractInlineImagesAsync(part: any, inlineImages: Map<string, string>, message: any): Promise<void> {
+  private async extractInlineImagesAsync(
+    part: any,
+    inlineImages: Map<string, string>,
+    message: any,
+  ): Promise<void> {
     // Extract inline images and their Content-IDs
-    if (part.mimeType?.startsWith('image/')) {
-      const contentId = part.headers?.find((h: any) =>
-        h.name.toLowerCase() === 'content-id'
+    if (part.mimeType?.startsWith("image/")) {
+      const contentId = part.headers?.find(
+        (h: any) => h.name.toLowerCase() === "content-id",
       )?.value;
 
-      const cid = contentId ? contentId.replace(/[<>]/g, '') : `inline-${Math.random()}`;
+      const cid = contentId
+        ? contentId.replace(/[<>]/g, "")
+        : `inline-${Math.random()}`;
 
       // Check if image data is directly available
       if (part.body?.data) {
@@ -59,8 +76,11 @@ class GmailService {
         try {
           const config = apiConfig.getConfig();
           const response = await api.get(
-            config.endpoints.gmail.attachment(message.id, part.body.attachmentId),
-            { responseType: 'blob' }
+            config.endpoints.gmail.attachment(
+              message.id,
+              part.body.attachmentId,
+            ),
+            { responseType: "blob" },
           );
 
           // Convert blob to data URL
@@ -68,7 +88,7 @@ class GmailService {
           const dataUrl = await this.blobToDataURL(blob);
           inlineImages.set(cid, dataUrl);
         } catch (error) {
-          console.error('Failed to fetch inline image:', error);
+          console.error("Failed to fetch inline image:", error);
           // Use placeholder or skip
         }
       }
@@ -90,14 +110,20 @@ class GmailService {
     });
   }
 
-  private extractInlineImages(part: any, inlineImages: Map<string, string>, message: any): void {
+  private extractInlineImages(
+    part: any,
+    inlineImages: Map<string, string>,
+    message: any,
+  ): void {
     // Extract inline images and their Content-IDs
-    if (part.mimeType?.startsWith('image/')) {
-      const contentId = part.headers?.find((h: any) =>
-        h.name.toLowerCase() === 'content-id'
+    if (part.mimeType?.startsWith("image/")) {
+      const contentId = part.headers?.find(
+        (h: any) => h.name.toLowerCase() === "content-id",
       )?.value;
 
-      const cid = contentId ? contentId.replace(/[<>]/g, '') : `inline-${Math.random()}`;
+      const cid = contentId
+        ? contentId.replace(/[<>]/g, "")
+        : `inline-${Math.random()}`;
 
       // Check if image data is directly available
       if (part.body?.data) {
@@ -114,15 +140,20 @@ class GmailService {
     }
 
     if (part.parts) {
-      part.parts.forEach((p: any) => this.extractInlineImages(p, inlineImages, message));
+      part.parts.forEach((p: any) =>
+        this.extractInlineImages(p, inlineImages, message),
+      );
     }
   }
 
-  private replaceInlineImages(html: string, inlineImages: Map<string, string>): string {
+  private replaceInlineImages(
+    html: string,
+    inlineImages: Map<string, string>,
+  ): string {
     let result = html;
     inlineImages.forEach((dataUrl, cid) => {
       // Replace cid: references with data URLs
-      result = result.replace(new RegExp(`cid:${cid}`, 'g'), dataUrl);
+      result = result.replace(new RegExp(`cid:${cid}`, "g"), dataUrl);
     });
     return result;
   }
@@ -132,15 +163,16 @@ class GmailService {
       // Skip ALL inline attachments (not just images)
       // Inline content is embedded in HTML body via cid: references
       // and has Content-Disposition: inline header
-      const isInline = part.headers?.some((h: any) =>
-        h.name.toLowerCase() === 'content-disposition' &&
-        h.value.toLowerCase().includes('inline')
+      const isInline = part.headers?.some(
+        (h: any) =>
+          h.name.toLowerCase() === "content-disposition" &&
+          h.value.toLowerCase().includes("inline"),
       );
 
       if (!isInline) {
         attachments.push({
           filename: part.filename,
-          mimeType: part.mimeType || 'application/octet-stream',
+          mimeType: part.mimeType || "application/octet-stream",
           size: part.body.size || 0,
           attachmentId: part.body.attachmentId,
         });
@@ -153,40 +185,57 @@ class GmailService {
 
   // Parse Gmail message to UI-friendly format
   private async parseMessageAsync(message: GmailMessage): Promise<ParsedEmail> {
-    console.log('Parsing message:', message.id, message);
+    console.log("Parsing message:", message.id, message);
     const headers = message.payload?.headers || [];
     const getHeader = (name: string) =>
-      headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+      headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ||
+      "";
 
-    const from = getHeader('From');
-    const to = getHeader('To');
-    const cc = getHeader('Cc');
-    const subject = getHeader('Subject');
-    const date = getHeader('Date');
+    const from = getHeader("From");
+    const to = getHeader("To");
+    const cc = getHeader("Cc");
+    const subject = getHeader("Subject");
+    const date = getHeader("Date");
 
     // Extract inline images first
     const inlineImages = new Map<string, string>();
     if (message.payload) {
-      await this.extractInlineImagesAsync(message.payload, inlineImages, message);
+      await this.extractInlineImagesAsync(
+        message.payload,
+        inlineImages,
+        message,
+      );
     }
-    console.log('Inline images extracted:', inlineImages.size, Array.from(inlineImages.keys()));
+    console.log(
+      "Inline images extracted:",
+      inlineImages.size,
+      Array.from(inlineImages.keys()),
+    );
 
     // Extract body
-    let body = '';
+    let body = "";
     if (message.payload) {
-      body = this.extractBody(message.payload, '', inlineImages);
+      body = this.extractBody(message.payload, "", inlineImages);
       // Replace cid: references with data URLs
       body = this.replaceInlineImages(body, inlineImages);
     }
-    console.log('Body extracted, length:', body.length, 'Body preview:', body.substring(0, 200));
+    console.log(
+      "Body extracted, length:",
+      body.length,
+      "Body preview:",
+      body.substring(0, 200),
+    );
 
     // If body is empty but we have inline images without cid references,
     // render them directly (some emails only contain images)
     if (!body && inlineImages.size > 0) {
-      console.log('Body empty but has inline images, rendering them directly');
+      console.log("Body empty but has inline images, rendering them directly");
       const imageHtml = Array.from(inlineImages.values())
-        .map(dataUrl => `<img src="${dataUrl}" style="max-width: 100%; height: auto;" />`)
-        .join('<br/>');
+        .map(
+          (dataUrl) =>
+            `<img src="${dataUrl}" style="max-width: 100%; height: auto;" />`,
+        )
+        .join("<br/>");
       body = `<div>${imageHtml}</div>`;
     }
 
@@ -195,11 +244,11 @@ class GmailService {
     if (message.payload) {
       this.extractAttachments(message.payload, attachments);
     }
-    console.log('Attachments extracted:', attachments.length);
+    console.log("Attachments extracted:", attachments.length);
 
     const labelIds = message.labelIds || [];
-    const isRead = !labelIds.includes('UNREAD');
-    const isStarred = labelIds.includes('STARRED');
+    const isRead = !labelIds.includes("UNREAD");
+    const isStarred = labelIds.includes("STARRED");
 
     return {
       id: message.id,
@@ -207,10 +256,11 @@ class GmailService {
       from,
       to,
       cc,
-      subject: subject || '(No Subject)',
-      date: date || new Date(parseInt(message.internalDate || '0')).toISOString(),
-      snippet: message.snippet || '',
-      body: body || `<p>${message.snippet || ''}</p>`,
+      subject: subject || "(No Subject)",
+      date:
+        date || new Date(parseInt(message.internalDate || "0")).toISOString(),
+      snippet: message.snippet || "",
+      body: body || `<p>${message.snippet || ""}</p>`,
       isRead,
       isStarred,
       labelIds,
@@ -220,17 +270,25 @@ class GmailService {
 
   async getLabels(signal?: AbortSignal): Promise<GmailLabel[]> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<GmailLabel[]>>(config.endpoints.gmail.labels, { signal });
+    const { data } = await api.get<ApiResponse<GmailLabel[]>>(
+      config.endpoints.gmail.labels,
+      { signal },
+    );
     return data.data;
   }
 
-  async getMessages(labelId: string = 'INBOX', pageToken?: string, limit: number = appConfig.gmail.defaultPageLimit, signal?: AbortSignal): Promise<EmailPageResponse> {
+  async getMessages(
+    labelId: string = "INBOX",
+    pageToken?: string,
+    limit: number = appConfig.gmail.defaultPageLimit,
+    signal?: AbortSignal,
+  ): Promise<EmailPageResponse> {
     const config = apiConfig.getConfig();
     const { data } = await api.get<ApiResponse<EmailPageResponse>>(
       config.endpoints.gmail.list(labelId),
-      { params: { pageToken, limit }, signal }
+      { params: { pageToken, limit }, signal },
     );
-    console.log('getMessages raw response:', data);
+    console.log("getMessages raw response:", data);
 
     let messagesRaw: any[] = [];
     let nextPageToken: string | null = null;
@@ -244,24 +302,38 @@ class GmailService {
       nextPageToken = data.data.nextPageToken;
     }
 
-    const parsedMessages = await Promise.all(messagesRaw.map(msg => this.parseMessageAsync(msg)));
+    const parsedMessages = await Promise.all(
+      messagesRaw.map((msg) => this.parseMessageAsync(msg)),
+    );
 
     return {
       messages: parsedMessages,
-      nextPageToken: nextPageToken
+      nextPageToken: nextPageToken,
     };
   }
 
-  async getMessage(messageId: string, signal?: AbortSignal): Promise<ParsedEmail> {
+  async getMessage(
+    messageId: string,
+    signal?: AbortSignal,
+  ): Promise<ParsedEmail> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<GmailMessage>>(config.endpoints.gmail.get(messageId), { signal });
+    const { data } = await api.get<ApiResponse<GmailMessage>>(
+      config.endpoints.gmail.get(messageId),
+      { signal },
+    );
     return this.parseMessageAsync(data.data);
   }
 
-  async getThread(threadId: string, signal?: AbortSignal): Promise<ParsedEmail[]> {
+  async getThread(
+    threadId: string,
+    signal?: AbortSignal,
+  ): Promise<ParsedEmail[]> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<GmailMessage[]>>(config.endpoints.gmail.thread(threadId), { signal });
-    console.log('getThread raw response:', data);
+    const { data } = await api.get<ApiResponse<GmailMessage[]>>(
+      config.endpoints.gmail.thread(threadId),
+      { signal },
+    );
+    console.log("getThread raw response:", data);
 
     let messagesRaw: any[] = [];
     if (Array.isArray(data)) {
@@ -270,7 +342,7 @@ class GmailService {
       messagesRaw = data.data;
     }
 
-    return Promise.all(messagesRaw.map(msg => this.parseMessageAsync(msg)));
+    return Promise.all(messagesRaw.map((msg) => this.parseMessageAsync(msg)));
   }
 
   async markAsRead(messageId: string): Promise<void> {
@@ -286,7 +358,7 @@ class GmailService {
   async toggleStar(messageId: string, starred: boolean): Promise<void> {
     const config = apiConfig.getConfig();
     await api.post(config.endpoints.gmail.toggleStar(messageId), null, {
-      params: { starred }
+      params: { starred },
     });
   }
 
@@ -308,7 +380,7 @@ class GmailService {
   async batchUpdateStatus(ids: string[], isRead: boolean): Promise<void> {
     const config = apiConfig.getConfig();
     await api.post(config.endpoints.gmail.batchStatus, ids, {
-      params: { isRead }
+      params: { isRead },
     });
   }
 
@@ -322,17 +394,24 @@ class GmailService {
     await api.delete(config.endpoints.gmail.permanentlyDelete(messageId));
   }
 
-  async downloadAttachment(messageId: string, attachmentId: string, filename: string): Promise<void> {
+  async downloadAttachment(
+    messageId: string,
+    attachmentId: string,
+    filename: string,
+  ): Promise<void> {
     const config = apiConfig.getConfig();
-    const response = await api.get(config.endpoints.gmail.attachment(messageId, attachmentId), {
-      responseType: 'blob',
-    });
+    const response = await api.get(
+      config.endpoints.gmail.attachment(messageId, attachmentId),
+      {
+        responseType: "blob",
+      },
+    );
 
     // Create a URL for the blob
     const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.setAttribute('download', filename);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
 
@@ -360,18 +439,18 @@ class GmailService {
       subject: params.subject,
       body: params.body,
     };
-    formData.append('data', JSON.stringify(jsonData));
+    formData.append("data", JSON.stringify(jsonData));
 
     // Add file attachments
     if (params.attachments && params.attachments.length > 0) {
       params.attachments.forEach((file) => {
-        formData.append('attachments', file);
+        formData.append("attachments", file);
       });
     }
 
     await api.post(config.endpoints.gmail.send, formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
   }
@@ -394,18 +473,18 @@ class GmailService {
       bcc: params.bcc || [],
       body: params.body,
     };
-    formData.append('data', JSON.stringify(jsonData));
+    formData.append("data", JSON.stringify(jsonData));
 
     // Add file attachments
     if (params.attachments && params.attachments.length > 0) {
       params.attachments.forEach((file) => {
-        formData.append('attachments', file);
+        formData.append("attachments", file);
       });
     }
 
     await api.post(config.endpoints.gmail.reply(params.messageId), formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
   }
@@ -417,20 +496,28 @@ class GmailService {
     });
   }
 
-  async getKanbanStatuses(signal?: AbortSignal): Promise<Record<string, string>> {
+  async getKanbanStatuses(
+    signal?: AbortSignal,
+  ): Promise<Record<string, string>> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<Record<string, string>>>(config.endpoints.kanban.statuses, { signal });
+    const { data } = await api.get<ApiResponse<Record<string, string>>>(
+      config.endpoints.kanban.statuses,
+      { signal },
+    );
     return data.data;
   }
 
-  async updateKanbanStatus(emailId: string, status: 'inbox' | 'important' | 'done'): Promise<void> {
+  async updateKanbanStatus(
+    emailId: string,
+    status: "inbox" | "important" | "done",
+  ): Promise<void> {
     const config = apiConfig.getConfig();
-    let backendStatus = 'INBOX';
-    if (status === 'important') backendStatus = 'IN_PROGRESS';
-    else if (status === 'done') backendStatus = 'DONE';
+    let backendStatus = "INBOX";
+    if (status === "important") backendStatus = "IN_PROGRESS";
+    else if (status === "done") backendStatus = "DONE";
 
     await api.post(config.endpoints.kanban.update, null, {
-      params: { emailId, status: backendStatus }
+      params: { emailId, status: backendStatus },
     });
   }
 
@@ -439,25 +526,52 @@ class GmailService {
     await api.post(config.endpoints.gmail.unsnooze(messageId));
   }
 
-  async getSnoozedEmailsInfo(signal?: AbortSignal): Promise<Record<string, string>> {
+  async getSnoozedEmailsInfo(
+    signal?: AbortSignal,
+  ): Promise<Record<string, string>> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<Record<string, string>>>(config.endpoints.gmail.snoozedInfo, { signal });
+    const { data } = await api.get<ApiResponse<Record<string, string>>>(
+      config.endpoints.gmail.snoozedInfo,
+      { signal },
+    );
     return data.data;
   }
 
   async getKanbanColumns(signal?: AbortSignal): Promise<any[]> {
     const config = apiConfig.getConfig();
-    const { data } = await api.get<ApiResponse<any[]>>(config.endpoints.kanban.columns, { signal });
+    const { data } = await api.get<ApiResponse<any[]>>(
+      config.endpoints.kanban.columns,
+      { signal },
+    );
     return data.data;
   }
 
   // Search: Gmail fields → GMAIL_API | body → INTERNAL | both → HYBRID
-  async search(request: SearchRequest, signal?: AbortSignal): Promise<SearchResult[]> {
+  async search(
+    request: SearchRequest,
+    signal?: AbortSignal,
+  ): Promise<SearchResult[]> {
     const config = apiConfig.getConfig();
     const { data } = await api.post<ApiResponse<SearchResult[]>>(
       config.endpoints.gmail.search,
       request,
-      { signal }
+      { signal },
+    );
+    return data.data;
+  }
+
+  // Semantic Search: AI-powered conceptual relevance search
+  // Query "money" finds "invoice", "price", "salary" based on semantic meaning
+  async semanticSearch(
+    query: string,
+    limit: number = 20,
+    signal?: AbortSignal,
+  ): Promise<SearchResult[]> {
+    const config = apiConfig.getConfig();
+    const { data } = await api.post<ApiResponse<SearchResult[]>>(
+      config.endpoints.gmail.semanticSearch,
+      { query, limit },
+      { signal },
     );
     return data.data;
   }
