@@ -449,7 +449,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
           <KanbanCard
             key={email.id}
             email={email}
-            column={id}
+            column={id as "inbox" | "important" | "done"}
             allLabels={labels}
             summaryText={summariesById[email.id]}
             isLoadingSummary={loadingIds.has(email.id)}

@@ -100,7 +100,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
       setShouldRetriggerSearch(false);
       handleSearch();
     }
-  }, [useSemanticSearch, shouldRetriggerSearch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useSemanticSearch, shouldRetriggerSearch, searchRequest.body]);
 
   const handleSearch = useCallback(
     async (overrideRequest?: SearchRequest) => {
@@ -172,6 +173,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
       searchRequest,
       useSemanticSearch,
       onSearchResults,
+      onSearchRequest,
       clearSuggestions,
       saveRecentSearch,
     ],
