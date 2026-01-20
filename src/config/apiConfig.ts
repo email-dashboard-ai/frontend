@@ -39,6 +39,8 @@ export interface ApiConfig {
       snoozedInfo: string;
       thread: (id: string) => string;
       search: string;
+      semanticSearch: string;
+      generateEmbeddings: string;
     };
     kanban: {
       statuses: string;

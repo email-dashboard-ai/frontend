@@ -18,6 +18,7 @@ interface KanbanViewProps {
   labels: GmailLabel[];
   kanbanStatuses: Record<string, string>;
   onMessageClick: (message: ParsedEmail) => void;
+  onToggleStar?: (messageId: string, isStarred: boolean) => void;
   onSnooze?: (emailId: string, snoozedUntil: string) => void;
   onLoadMore?: () => void;
   isLoading?: boolean;
