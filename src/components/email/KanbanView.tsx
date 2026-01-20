@@ -18,7 +18,6 @@ interface KanbanViewProps {
   labels: GmailLabel[];
   kanbanStatuses: Record<string, string>;
   onMessageClick: (message: ParsedEmail) => void;
-  onToggleStar: (id: string, isStarred: boolean) => void;
   onSnooze?: (emailId: string, snoozedUntil: string) => void;
   onLoadMore?: () => void;
   isLoading?: boolean;
@@ -30,7 +29,6 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   labels,
   kanbanStatuses,
   onMessageClick,
-  onToggleStar,
   onSnooze,
   onLoadMore,
   isLoading,
@@ -40,7 +38,6 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   const [columns, setColumns] = useState<KanbanColumnType[]>([]);
   const [loadingColumns, setLoadingColumns] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
-  const [movingEmailId, setMovingEmailId] = useState<string | null>(null);
 
   // Local state for immediate UI updates
   const [localMessages, setLocalMessages] = useState<ParsedEmail[]>(messages);
@@ -83,7 +80,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
       setLoadingColumns(true);
       const fetchedColumns = await kanbanService.getColumns();
       setColumns(fetchedColumns);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Failed to fetch Kanban columns:", error);
       toast.error("Failed to load Kanban columns");
     } finally {
@@ -181,9 +178,6 @@ const KanbanView: React.FC<KanbanViewProps> = ({
         onMessagesChange(updatedMessages);
       }
 
-      // Show brief loading indicator
-      setMovingEmailId(emailId);
-
       try {
         // Call API in background
         await api.post("/api/kanban/move", null, {
@@ -219,7 +213,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
             await indexedDBService.invalidateLabelCache(userEmail, labelId);
           }
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Failed to move email:", error);
         toast.error("Failed to move email");
 
@@ -228,8 +222,6 @@ const KanbanView: React.FC<KanbanViewProps> = ({
         if (onMessagesChange) {
           onMessagesChange(messages);
         }
-      } finally {
-        setMovingEmailId(null);
       }
     },
     [localMessages, messages, columns, onMessagesChange],
@@ -259,8 +251,11 @@ const KanbanView: React.FC<KanbanViewProps> = ({
       await kanbanService.deleteColumn(column.id);
       toast.success("Column deleted successfully");
       fetchColumns();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete column");
+    } catch (error: unknown) {
+      toast.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Failed to delete column",
+      );
     }
   };
 
@@ -292,7 +287,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
   };
 
   // Get icon for column (you can customize this)
-  const getColumnIcon = (_columnId: string) => {
+  const getColumnIcon = () => {
     // Return null for now, or you can import icons dynamically
     return null;
   };
@@ -343,7 +338,7 @@ const KanbanView: React.FC<KanbanViewProps> = ({
                 id={column.columnId}
                 title={column.name}
                 count={emails.length}
-                icon={getColumnIcon(column.columnId)}
+                icon={getColumnIcon()}
                 emails={emails}
                 labels={labels}
                 summariesById={summariesById}

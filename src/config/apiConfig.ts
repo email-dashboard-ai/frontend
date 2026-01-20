@@ -83,7 +83,8 @@ class ApiConfigManager {
           permanentlyDelete: (id: string) => `/api/gmail/${id}/permanent`,
           batchDelete: "/api/gmail/batch/delete",
           batchStatus: "/api/gmail/batch/status",
-          attachment: (messageId: string, attachmentId: string) => `/api/gmail/${messageId}/attachments/${attachmentId}`,
+          attachment: (messageId: string, attachmentId: string) =>
+            `/api/gmail/${messageId}/attachments/${attachmentId}`,
           send: "/api/gmail/send",
           reply: (id: string) => `/api/gmail/${id}/reply`,
           snooze: (id: string) => `/api/gmail/${id}/snooze`,
@@ -91,6 +92,8 @@ class ApiConfigManager {
           snoozedInfo: "/api/gmail/snoozed-info",
           thread: (id: string) => `/api/gmail/thread/${id}`,
           search: "/api/gmail/search",
+          semanticSearch: "/api/gmail/semantic-search",
+          generateEmbeddings: "/api/gmail/embeddings/generate",
         },
         kanban: {
           statuses: "/api/kanban/statuses",
@@ -131,7 +134,10 @@ let store: { getState: () => RootState; dispatch: any } | null = null;
 let getAccessToken: (() => string | null) | null = null;
 let onSessionExpired: (() => void) | null = null;
 
-export const setStoreForApi = (storeInstance: { getState: () => RootState; dispatch: any }) => {
+export const setStoreForApi = (storeInstance: {
+  getState: () => RootState;
+  dispatch: any;
+}) => {
   store = storeInstance;
 };
 
@@ -145,7 +151,11 @@ export const setApiAuthHandlers = (handlers: {
 
 // Request interceptor - get token via handler or Redux store (in-memory)
 api.interceptors.request.use((config) => {
-  const token = getAccessToken ? getAccessToken() : (store ? store.getState().auth.accessToken : null);
+  const token = getAccessToken
+    ? getAccessToken()
+    : store
+      ? store.getState().auth.accessToken
+      : null;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -204,7 +214,7 @@ api.interceptors.response.use(
           try {
             const { data } = await axios.post(
               `${apiConfig.getConfig().baseUrl}${apiConfig.getConfig().endpoints.auth.refresh}`,
-              { token: refreshToken }
+              { token: refreshToken },
             );
 
             // Dispatch to Redux to update tokens
@@ -246,5 +256,5 @@ api.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );

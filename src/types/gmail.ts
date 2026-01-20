@@ -76,7 +76,10 @@ export interface GmailState {
   isLoading: boolean;
   error: string | null;
   nextPageToken: string | null;
-  knownUsers?: Record<string, { email: string; name: string; avatar: string | null }>;
+  knownUsers?: Record<
+    string,
+    { email: string; name: string; avatar: string | null }
+  >;
 }
 
 export interface EmailPageResponse {
@@ -91,7 +94,7 @@ export interface SearchResult {
   from: string;
   snippet: string;
   receivedDate: string;
-  strategy: 'GMAIL_API' | 'INTERNAL' | 'HYBRID';
+  strategy: "GMAIL_API" | "INTERNAL" | "HYBRID" | "SEMANTIC";
 }
 
 // Smart Search Request
@@ -103,8 +106,8 @@ export interface SearchRequest {
   bcc?: string;
   subject?: string;
   filename?: string;
-  after?: string;   // YYYY-MM-DD
-  before?: string;  // YYYY-MM-DD
+  after?: string; // YYYY-MM-DD
+  before?: string; // YYYY-MM-DD
   label?: string;
   category?: string;
   hasAttachment?: boolean;
@@ -121,10 +124,15 @@ export interface SearchRequest {
   useFuzzySearch?: boolean;
 }
 
+// Semantic Search Request (for AI-powered conceptual search)
+export interface SemanticSearchRequest {
+  query: string;
+  limit?: number;
+}
+
 // Saved Search Request (for history with full state)
 export interface SavedSearchRequest {
   request: SearchRequest;
   timestamp: number;
   displayLabel: string;
 }
-

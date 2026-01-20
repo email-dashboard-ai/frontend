@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { X } from "lucide-react";
 import { KanbanColumnRequest } from "../../types/kanban";
 
 interface ColumnFormProps {
@@ -31,7 +30,7 @@ const ColumnForm: React.FC<ColumnFormProps> = ({
   isEdit,
 }) => {
   const [name, setName] = useState(initialData?.name || "");
-  const [columnId, setColumnId] = useState(initialData?.columnId || "");
+  const [columnId] = useState(initialData?.columnId || "");
   const [color, setColor] = useState(initialData?.color || PRESET_COLORS[0]);
 
   // Auto-generate column ID preview as user types

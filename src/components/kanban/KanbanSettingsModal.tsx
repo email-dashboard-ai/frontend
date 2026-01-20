@@ -39,9 +39,10 @@ const KanbanSettingsModal: React.FC<KanbanSettingsModalProps> = ({
       toast.success("Column created successfully");
       setShowForm(false);
       onColumnsUpdated();
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorMessage =
-        error.response?.data?.message || "Failed to create column";
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Failed to create column";
       toast.error(errorMessage);
     }
   };
@@ -54,8 +55,11 @@ const KanbanSettingsModal: React.FC<KanbanSettingsModalProps> = ({
       toast.success("Column updated successfully");
       setEditingColumn(null);
       onColumnsUpdated();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to update column");
+    } catch (error: unknown) {
+      toast.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Failed to update column",
+      );
     }
   };
 
@@ -65,8 +69,11 @@ const KanbanSettingsModal: React.FC<KanbanSettingsModalProps> = ({
       toast.success("Column deleted successfully");
       setDeletingColumn(null);
       onColumnsUpdated();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Failed to delete column");
+    } catch (error: unknown) {
+      toast.error(
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Failed to delete column",
+      );
     }
   };
 
