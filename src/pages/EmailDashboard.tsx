@@ -57,6 +57,7 @@ const EmailDashboard: React.FC = () => {
   const [isMobileDetailView, setIsMobileDetailView] = useState(false);
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [historyStack, setHistoryStack] = useState<string[]>([]);
+  const [forwardStack, setForwardStack] = useState<string[]>([]);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "kanban">("list");
   const [kanbanStatuses, setKanbanStatuses] = useState<Record<string, string>>(
@@ -387,6 +388,7 @@ const EmailDashboard: React.FC = () => {
       dispatch(clearMessages());
       setPageToken(undefined);
       setHistoryStack([]);
+      setForwardStack([]); // Reset forward stack when changing labels
       setSelectedEmailIds(new Set());
       dispatch(
         fetchMessages({ labelId: selectedLabel.id, userEmail: user.email }),
@@ -407,13 +409,24 @@ const EmailDashboard: React.FC = () => {
   }, []);
 
   const handleNextPage = () => {
-    if (nextPageToken && selectedLabel && user?.email) {
+    // Check if we're going forward to a new page (from API) or replaying forward history
+    const actualNextToken = forwardStack.length > 0 ? forwardStack[0] : nextPageToken;
+
+    if (actualNextToken && selectedLabel && user?.email) {
       setHistoryStack((prev) => [...prev, pageToken || ""]);
-      setPageToken(nextPageToken);
+
+      // If using forward stack, pop it; otherwise clear it (new forward navigation)
+      if (forwardStack.length > 0) {
+        setForwardStack((prev) => prev.slice(1));
+      } else {
+        setForwardStack([]);
+      }
+
+      setPageToken(actualNextToken === "" ? undefined : actualNextToken);
       dispatch(
         fetchMessages({
           labelId: selectedLabel.id,
-          pageToken: nextPageToken,
+          pageToken: actualNextToken === "" ? undefined : actualNextToken,
           userEmail: user.email,
         }),
       );
@@ -424,8 +437,12 @@ const EmailDashboard: React.FC = () => {
     if (historyStack.length > 0 && selectedLabel && user?.email) {
       const prevToken = historyStack[historyStack.length - 1];
       const newStack = historyStack.slice(0, -1);
+
+      // Save current page to forward stack
+      setForwardStack((prev) => [pageToken || "", ...prev]);
       setHistoryStack(newStack);
       setPageToken(prevToken === "" ? undefined : prevToken);
+
       dispatch(
         fetchMessages({
           labelId: selectedLabel.id,
@@ -514,8 +531,8 @@ const EmailDashboard: React.FC = () => {
               <button
                 onClick={() => setViewMode("list")}
                 className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === "list"
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "text-blue-600 hover:text-blue-700"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-blue-600 hover:text-blue-700"
                   }`}
                 title="List View"
               >
@@ -528,8 +545,8 @@ const EmailDashboard: React.FC = () => {
                   dispatch(setSelectedMessage(null));
                 }}
                 className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === "kanban"
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "text-blue-600 hover:text-blue-700"
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-blue-600 hover:text-blue-700"
                   }`}
                 title="Kanban Board"
               >
@@ -659,7 +676,7 @@ const EmailDashboard: React.FC = () => {
                 onClearSelection={() => setSelectedEmailIds(new Set())}
                 onNextPage={handleNextPage}
                 onPrevPage={handlePrevPage}
-                hasNextPage={!!nextPageToken}
+                hasNextPage={!!nextPageToken || forwardStack.length > 0}
                 hasPrevPage={historyStack.length > 0}
                 onSnooze={(emailId, snoozedUntil) => {
                   if (selectedLabel) {
