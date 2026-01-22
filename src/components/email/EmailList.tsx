@@ -234,10 +234,11 @@ const EmailList: React.FC<EmailListProps> = ({
                 <span className="text-xs text-gray-500 whitespace-nowrap">{filteredMessages.length} emails</span>
                 <button
                   onClick={onRefresh}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={isLoading}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:cursor-not-allowed"
                   title="Refresh"
                 >
-                  <RefreshCw size={18} className="text-gray-600" />
+                  <RefreshCw size={18} className={`text-gray-600 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
               </div>
             </div>
