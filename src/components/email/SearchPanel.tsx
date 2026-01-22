@@ -343,17 +343,12 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 h-12 px-2
             `}
       >
-        <button
-          onClick={() => handleSearch()}
-          disabled={isSearching}
-          className="p-3 text-gray-500 hover:bg-gray-100 rounded-full transition-colors disabled:cursor-not-allowed"
-        >
-          {isSearching ? (
+        {/* Loading indicator - only shows when searching */}
+        {isSearching && (
+          <div className="p-3 flex items-center justify-center">
             <Loader2 size={20} className="animate-spin text-blue-600" />
-          ) : (
-            <Search size={20} />
-          )}
-        </button>
+          </div>
+        )}
 
         <input
           ref={inputRef}
@@ -395,11 +390,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               e.stopPropagation();
               setShowSearchModeMenu(!showSearchModeMenu);
             }}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all duration-200 ${
-              useSemanticSearch || searchRequest.useFuzzySearch
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all duration-200 ${useSemanticSearch || searchRequest.useFuzzySearch
                 ? "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 shadow-sm"
                 : "text-gray-600 hover:bg-gray-100"
-            }`}
+              }`}
             title="Search mode options"
           >
             {useSemanticSearch ? (
@@ -546,11 +540,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             setShowFilters(!showFilters);
             setShowSuggestions(false);
           }}
-          className={`p-2 rounded-full transition-colors relative mr-1 ${
-            showFilters || activeFiltersCount > 0
+          className={`p-2 rounded-full transition-colors relative mr-1 ${showFilters || activeFiltersCount > 0
               ? "bg-blue-100 text-blue-600"
               : "text-gray-500 hover:bg-gray-200"
-          }`}
+            }`}
           title="Show search options"
         >
           <Filter size={20} />
@@ -573,11 +566,10 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               key={suggestion.id}
               onClick={() => handleSuggestionClick(suggestion)}
               onMouseEnter={() => setSelectedSuggestionIndex(index)}
-              className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors ${
-                index === selectedSuggestionIndex
+              className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors ${index === selectedSuggestionIndex
                   ? "bg-blue-50"
                   : "hover:bg-gray-50"
-              }`}
+                }`}
             >
               <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
                 {getSuggestionIcon(suggestion.type)}
