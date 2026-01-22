@@ -490,6 +490,9 @@ const EmailDashboard: React.FC = () => {
                 onSearchResults={(results) => {
                   setSearchResults(results);
                   setIsSearchActive(true);
+                  // Clear selected message and URL when search activates
+                  dispatch(setSelectedMessage(null));
+                  navigate("", { replace: true });
                 }}
                 onSearchRequest={(request) => {
                   setSearchRequest(request);
@@ -498,6 +501,9 @@ const EmailDashboard: React.FC = () => {
                   setSearchResults([]);
                   setIsSearchActive(false);
                   setSearchRequest({});
+                  // Clear selected message when exiting search
+                  dispatch(setSelectedMessage(null));
+                  navigate("", { replace: true });
                 }}
                 isSearchActive={isSearchActive}
               />
@@ -507,11 +513,10 @@ const EmailDashboard: React.FC = () => {
             <div className="flex bg-blue-50 p-1 rounded-lg border border-blue-200 flex-shrink-0">
               <button
                 onClick={() => setViewMode("list")}
-                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${
-                  viewMode === "list"
+                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === "list"
                     ? "bg-blue-600 text-white shadow-md"
                     : "text-blue-600 hover:text-blue-700"
-                }`}
+                  }`}
                 title="List View"
               >
                 Gmail
@@ -522,11 +527,10 @@ const EmailDashboard: React.FC = () => {
                   setIsMobileDetailView(false);
                   dispatch(setSelectedMessage(null));
                 }}
-                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${
-                  viewMode === "kanban"
+                className={`px-6 py-2 rounded-md transition-all flex items-center justify-center font-medium text-sm ${viewMode === "kanban"
                     ? "bg-blue-600 text-white shadow-md"
                     : "text-blue-600 hover:text-blue-700"
-                }`}
+                  }`}
                 title="Kanban Board"
               >
                 Kanban
@@ -621,6 +625,9 @@ const EmailDashboard: React.FC = () => {
                 onBack={() => {
                   setIsSearchActive(false);
                   setSearchResults([]);
+                  // Clear selected message when going back from search
+                  dispatch(setSelectedMessage(null));
+                  navigate("", { replace: true });
                 }}
               />
             ) : (
@@ -716,8 +723,8 @@ const EmailDashboard: React.FC = () => {
         ) : (
           <>
             {isMobile &&
-            (isMobileDetailView || !!selectedMessage) &&
-            selectedMessage ? (
+              (isMobileDetailView || !!selectedMessage) &&
+              selectedMessage ? (
               <EmailDetail
                 isMobileDetailView={isMobileDetailView}
                 setIsMobileDetailView={setIsMobileDetailView}
