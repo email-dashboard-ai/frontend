@@ -66,16 +66,14 @@ const SearchResults: React.FC<SearchResultsProps> = ({
       <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border-b border-amber-200">
         <Info size={16} className="text-amber-600 flex-shrink-0" />
         <p className="text-xs text-amber-700">
-          <span className="font-medium">Lưu ý:</span> Kết quả tìm kiếm có thể
-          khác một chút so với Gmail web. Điều này là do Gmail API sử dụng index
-          và thuật toán khác với giao diện web của Gmail.{" "}
+          <span className="font-medium">Note:</span> Search results may differ slightly from Gmail web. This is because Gmail API uses different indexing and algorithms than the Gmail web interface.{" "}
           <a
             href="https://stackoverflow.com/questions/33552890/why-does-search-in-gmail-api-return-different-result-than-search-in-gmail-website"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-amber-900 font-medium"
           >
-            Tìm hiểu thêm
+            Learn more
           </a>
         </p>
       </div>
