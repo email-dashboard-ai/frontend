@@ -343,12 +343,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                 h-12 px-2
             `}
       >
-        {/* Loading indicator - only shows when searching */}
-        {isSearching && (
-          <div className="p-3 flex items-center justify-center">
+        {/* Single Search Icon on Left */}
+        <div className="p-3 flex items-center justify-center">
+          {isSearching ? (
             <Loader2 size={20} className="animate-spin text-blue-600" />
-          </div>
-        )}
+          ) : (
+            <Search size={20} className="text-gray-500" />
+          )}
+        </div>
 
         <input
           ref={inputRef}
@@ -383,7 +385,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
           </button>
         )}
 
-        {/* Search Mode Dropdown Menu */}
+        {/* Search Mode Dropdown Menu on Right */}
         <div className="relative mr-1" ref={searchModeRef}>
           <button
             onClick={(e) => {
@@ -392,7 +394,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             }}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-full transition-all duration-200 ${useSemanticSearch || searchRequest.useFuzzySearch
                 ? "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 shadow-sm"
-                : "text-gray-600 hover:bg-gray-100"
+                : "bg-blue-100 text-blue-700 shadow-sm"
               }`}
             title="Search mode options"
           >
@@ -400,9 +402,7 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               <Brain size={18} className="text-purple-600" />
             ) : searchRequest.useFuzzySearch ? (
               <Sparkles size={18} className="text-purple-600" />
-            ) : (
-              <Search size={18} />
-            )}
+            ) : null}
             <span className="text-sm font-medium">
               {useSemanticSearch
                 ? "AI"
@@ -426,22 +426,14 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                     setUseSemanticSearch(false);
                     updateField("useFuzzySearch", false);
                     setShowSearchModeMenu(false);
+                    // Reset filters when switching mode
+                    setSearchRequest({ body: searchRequest.body });
                     if (searchRequest.body?.trim()) {
                       setShouldRetriggerSearch(true);
                     }
                   }}
-                  className="w-full px-4 py-3 hover:bg-gray-50 flex items-start gap-3 transition-colors"
+                  className="w-full px-4 py-3 hover:bg-blue-50 flex items-start gap-3 transition-colors"
                 >
-                  <div className="flex-shrink-0 mt-0.5">
-                    <Search
-                      size={20}
-                      className={
-                        !useSemanticSearch && !searchRequest.useFuzzySearch
-                          ? "text-blue-600"
-                          : "text-gray-400"
-                      }
-                    />
-                  </div>
                   <div className="flex-1 text-left">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-gray-900">
@@ -463,6 +455,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                     setUseSemanticSearch(false);
                     updateField("useFuzzySearch", true);
                     setShowSearchModeMenu(false);
+                    // Reset filters when switching mode
+                    setSearchRequest({ body: searchRequest.body, useFuzzySearch: true });
                     if (searchRequest.body?.trim()) {
                       setShouldRetriggerSearch(true);
                     }
@@ -500,6 +494,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
                     setUseSemanticSearch(true);
                     updateField("useFuzzySearch", false);
                     setShowSearchModeMenu(false);
+                    // Reset filters when switching mode
+                    setSearchRequest({ body: searchRequest.body });
                     if (searchRequest.body?.trim()) {
                       setShouldRetriggerSearch(true);
                     }
@@ -541,8 +537,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
             setShowSuggestions(false);
           }}
           className={`p-2 rounded-full transition-colors relative mr-1 ${showFilters || activeFiltersCount > 0
-              ? "bg-blue-100 text-blue-600"
-              : "text-gray-500 hover:bg-gray-200"
+            ? "bg-blue-100 text-blue-600"
+            : "text-gray-500 hover:bg-gray-200"
             }`}
           title="Show search options"
         >
@@ -567,8 +563,8 @@ const SearchPanel: React.FC<SearchPanelProps> = ({
               onClick={() => handleSuggestionClick(suggestion)}
               onMouseEnter={() => setSelectedSuggestionIndex(index)}
               className={`w-full px-4 py-2.5 flex items-center gap-3 text-left transition-colors ${index === selectedSuggestionIndex
-                  ? "bg-blue-50"
-                  : "hover:bg-gray-50"
+                ? "bg-blue-50"
+                : "hover:bg-gray-50"
                 }`}
             >
               <span className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
